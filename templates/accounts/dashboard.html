@@ -3,100 +3,188 @@
 
 {% block content %}
 
-<!-- ========================= SECTION CONTENT ========================= -->
-<section class="section-conten padding-y bg">
+<section class="section-content padding-y bg">
 
-{%include 'includes/alerts.html' %}   
+{% include 'includes/alerts.html' %}
 
 <div class="container">
-	<div class="row">
-	<aside class="col-md-3">
-		<!--   SIDEBAR   -->
-		<ul class="list-group">
-			<a class="list-group-item active" href="#"> My order history </a>
-			<a class="list-group-item" href="#"> Transactions </a>
-			<a class="list-group-item" href="#"> Return and refunds </a>
-			<a class="list-group-item" href="#">Settings </a>
-			<a class="list-group-item" href="#"> My Selling Items </a>
-			<a class="list-group-item" href="#"> Received orders </a>
-		</ul>
-		<br>
-		<a class="btn btn-light btn-block" href="{% url 'logout' %}"> <i class="fa fa-power-off"></i> <span class="text">Log out</span> </a> 
-		<!--   SIDEBAR .//END   -->
-	</aside>
-	<main class="col-md-9">
-		<article class="card">
-		<header class="card-header">
-			<strong class="d-inline-block mr-3">Order ID: 6123456789</strong>
-			<span>Order Date: 16 December 2018</span>
-		</header>
-		<div class="card-body">
-			<div class="row"> 
-				<div class="col-md-8">
-					<h6 class="text-muted">Delivery to</h6>
-					<p>Michael Jackson <br>  
-					Phone +1234567890 Email: myname@pixsellz.com <br>
-			    	Location: Home number, Building name, Street 123,  Tashkent, UZB <br> 
-			    	P.O. Box: 100123
-			 		</p>
-				</div>
-				<div class="col-md-4">
-					<h6 class="text-muted">Payment</h6>
-					<span class="text-success">
-						<i class="fab fa-lg fa-cc-visa"></i>
-					    Visa  **** 4216  
-					</span>
-					<p>Subtotal: $356 <br>
-					 Shipping fee:  $56 <br> 
-					 <span class="b">Total:  $456 </span>
-					</p>
-				</div>
-			</div> <!-- row.// -->
-		</div> <!-- card-body .// -->
-		<div class="table-responsive">
-		<table class="table table-hover">
-			<tr>
-				<td width="65">
-					<img src="../images/items/1.jpg" class="img-xs border">
-				</td>
-				<td> 
-					<p class="title mb-0">Product name goes here </p>
-					<var class="price text-muted">USD 145</var>
-				</td>
-				<td> Seller <br> Nike clothing </td>
-				<td width="250"> <a href="#" class="btn btn-outline-primary">Track order</a> <a href="#" class="btn btn-light"> Details </a> </td>
-			</tr>
-			<tr>
-				<td>
-					<img src="../images/items/2.jpg" class="img-xs border">
-				</td>
-				<td> 
-					<p class="title mb-0">Another name goes here </p>
-					<var class="price text-muted">USD 15</var>
-				</td>
-				<td> Seller <br> ABC shop </td>
-				<td> <a href="#" class="btn btn-outline-primary">Track order</a> <a href="#" class="btn btn-light"> Details </a> </td>
-			</tr>
-			<tr>
-				<td>
-					<img src="../images/items/3.jpg" class="img-xs border">
-				</td>
-				<td> 
-					<p class="title mb-0">The name of the product  goes here </p>
-					<var class="price text-muted">USD 145</var>
-				</td>
-				<td> Seller <br> Wallmart </td>
-				<td> <a href="#" class="btn btn-outline-primary">Track order</a> <a href="#" class="btn btn-light"> Details </a> </td>
-			</tr>
-		</table>
-		</div> <!-- table-responsive .end// -->
-		</article> <!-- order-group.// --> 
-	</main>
-</div> <!-- row.// -->
+<div class="row">
+
+<aside class="col-md-3">
+
+<ul class="list-group">
+<a class="list-group-item active" href="#">My order history</a>
+<a class="list-group-item" href="#">Transactions</a>
+<a class="list-group-item" href="#">Return and refunds</a>
+<a class="list-group-item" href="#">Settings</a>
+<a class="list-group-item" href="#">My Selling Items</a>
+<a class="list-group-item" href="#">Received orders</a>
+</ul>
+
+<br>
+
+<a class="btn btn-light btn-block" href="{% url 'logout' %}">
+<i class="fa fa-power-off"></i>
+<span class="text">Log out</span>
+</a>
+
+</aside>
+
+<main class="col-md-9">
+
+{% if orders %}
+
+{% for order in orders %}
+
+<article class="card mb-4">
+
+<header class="card-header">
+<strong class="d-inline-block mr-3">
+Order ID: {{ order.order_number }}
+</strong>
+<span>
+Order Date: {{ order.created_at|date:"d F Y" }}
+</span>
+</header>
+
+<div class="card-body">
+
+<div class="row">
+
+<div class="col-md-8">
+
+<h6 class="text-muted">Delivery to</h6>
+
+<p>
+<strong>{{ order.full_name }}</strong><br>
+Phone: {{ order.phone }}<br>
+Email: {{ order.email }}<br>
+Address: {{ order.address_line_1 }}
+{% if order.address_line_2 %}
+, {{ order.address_line_2 }}
+{% endif %}
+<br>
+{{ order.city }}, {{ order.state }}, {{ order.country }}
+</p>
+
 </div>
 
+<div class="col-md-4">
+
+<h6 class="text-muted">Payment</h6>
+
+{% if order.payment %}
+
+<span class="text-success">
+<i class="fa fa-check-circle"></i>
+{{ order.payment.payment_method }}
+</span>
+
+<p>
+Payment ID: {{ order.payment.payment_id }}<br>
+Status: {{ order.payment.status }}<br>
+Total: ${{ order.order_total|floatformat:2 }}
+</p>
+
+{% else %}
+
+<span class="text-danger">Payment Pending</span>
+
+{% endif %}
+
+</div>
+
+</div>
+
+</div>
+
+<div class="table-responsive">
+
+<table class="table table-hover">
+
+{% for item in order.orderproduct_set.all %}
+
+<tr>
+
+<td width="65">
+
+{% if item.product.images %}
+<img src="{{ item.product.images.url }}" class="img-xs border">
+{% endif %}
+
+</td>
+
+<td>
+
+<p class="title mb-0">
+{{ item.product.product_name }}
+</p>
+
+<var class="price text-muted">
+${{ item.product_price|floatformat:2 }} × {{ item.quantity }}
+</var>
+
+{% if item.color or item.size %}
+<p class="text-muted small mb-0">
+{% if item.color %}Color: {{ item.color }}{% endif %}
+{% if item.size %} Size: {{ item.size }}{% endif %}
+</p>
+{% endif %}
+
+</td>
+
+<td>
+<strong>Order Status</strong><br>
+<span class="text-success">{{ order.status }}</span>
+</td>
+
+<td width="250">
+
+<a href="{% url 'order_complete' order.order_number %}" class="btn btn-light">
+Details
+</a>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</article>
+
+{% endfor %}
+
+{% else %}
+
+<article class="card">
+
+<div class="card-body text-center">
+
+<h5>You have no orders yet.</h5>
+
+<p class="text-muted">
+Your completed orders will appear here.
+</p>
+
+<a href="{% url 'store' %}" class="btn btn-primary">
+Continue Shopping
+</a>
+
+</div>
+
+</article>
+
+{% endif %}
+
+</main>
+
+</div>
+</div>
 
 </section>
-<!-- ========================= SECTION CONTENT END// ========================= -->
 
 {% endblock %}

@@ -2,15 +2,14 @@
 {% load static %}
 
 {% block content %}
-section class="section-pagetop bg">
+<section class="section-pagetop bg">
 <div class="container">
 	{% if 'search' in request.path %}
 		<h2 class="title-page">Search results for "{{ request.GET.keyword }}"</h2>
 	{% else %}
-	<h2 class="title-page">Our Store</h2>
+		<h2 class="title-page">Our Store</h2>
 	{% endif %}
-	
-</div> <!-- container //  -->
+</div>
 </section>
 <!-- ========================= SECTION INTRO END// ========================= -->
 
