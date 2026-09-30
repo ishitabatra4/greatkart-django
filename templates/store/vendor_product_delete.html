@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<section class="section-content padding-y">
+
+<div class="card mx-auto" style="max-width:500px;margin-top:50px;">
+<div class="card-body text-center">
+
+<h4>Delete Product?</h4>
+
+<p>
+Are you sure you want to delete
+<strong>{{ product.product_name }}</strong>?
+</p>
+
+<form method="POST">
+
+{% csrf_token %}
+
+<button type="submit" class="btn btn-danger">
+Yes, Delete
+</button>
+
+<a href="{% url 'vendor_products' %}" class="btn btn-light">
+Cancel
+</a>
+
+</form>
+
+</div>
+</div>
+
+</section>
+
+{% endblock %}

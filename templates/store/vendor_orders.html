@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<section class="section-content padding-y">
+<div class="container">
+
+<h3 class="mb-4">Vendor Dashboard</h3>
+
+<div class="mb-3">
+
+<a href="{% url 'vendor_products' %}" class="btn btn-primary">
+Manage My Products
+</a>
+
+<a href="{% url 'vendor_product_add' %}" class="btn btn-success">
++ Add Product
+</a>
+
+<a href="{% url 'request_category' %}" class="btn btn-outline-primary">
+Request New Category
+</a>
+
+</div>
+
+
+<!-- Dashboard Statistics -->
+
+<div class="row">
+
+<div class="col-md-4">
+<div class="card">
+<div class="card-body">
+
+<h6>Today's Orders</h6>
+
+<h3>
+{{ orders_count }}
+</h3>
+
+</div>
+</div>
+</div>
+
+
+<div class="col-md-4">
+<div class="card">
+<div class="card-body">
+
+<h6>Today's Sales</h6>
+
+<h3>
+₹{{ today_sales }}
+</h3>
+
+</div>
+</div>
+</div>
+
+
+<div class="col-md-4">
+<div class="card">
+<div class="card-body">
+
+<h6>Total Products</h6>
+
+<h3>
+{{ products.count }}
+</h3>
+
+</div>
+</div>
+</div>
+
+</div>
+
+
+<!-- My Products -->
+
+<div class="card mt-4">
+
+<div class="card-body">
+
+<h5>My Products</h5>
+
+<div class="table-responsive">
+
+<table class="table table-bordered">
+
+<thead>
+
+<tr>
+
+<th>Product</th>
+
+<th>Price</th>
+
+<th>Stock</th>
+
+<th>Status</th>
+
+<th>Actions</th>
+
+</tr>
+
+</thead>
+
+
+<tbody>
+
+{% for product in products %}
+
+<tr>
+
+<td>
+{{ product.product_name }}
+</td>
+
+
+<td>
+₹{{ product.price }}
+</td>
+
+
+<td>
+{{ product.stock }}
+</td>
+
+
+<td>
+
+{% if product.is_available and product.stock > 0 %}
+
+<span class="text-success">
+Available
+</span>
+
+{% else %}
+
+<span class="text-danger">
+Out of Stock
+</span>
+
+{% endif %}
+
+</td>
+
+
+<td>
+
+<a href="{% url 'vendor_product_edit' product.id %}"
+   class="btn btn-sm btn-primary">
+
+Edit
+
+</a>
+
+
+<a href="{% url 'vendor_product_delete' product.id %}"
+   class="btn btn-sm btn-danger">
+
+Delete
+
+</a>
+
+</td>
+
+</tr>
+
+
+{% empty %}
+
+<tr>
+
+<td colspan="5" class="text-center">
+
+No products added yet.
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+
+<!-- My Orders -->
+
+<div class="card mt-4">
+
+<div class="card-body">
+
+<h5>My Orders</h5>
+
+<div class="table-responsive">
+
+<table class="table table-bordered">
+
+<thead>
+
+<tr>
+
+<th>Order</th>
+
+<th>Product</th>
+
+<th>Quantity</th>
+
+<th>Price</th>
+
+<th>Date</th>
+
+</tr>
+
+</thead>
+
+
+<tbody>
+
+{% for item in orders %}
+
+<tr>
+
+<td>
+
+#{{ item.order.order_number }}
+
+</td>
+
+
+<td>
+
+{{ item.product.product_name }}
+
+</td>
+
+
+<td>
+
+{{ item.quantity }}
+
+</td>
+
+
+<td>
+
+₹{{ item.product_price }}
+
+</td>
+
+
+<td>
+
+{{ item.created_at|date:"d M Y" }}
+
+</td>
+
+</tr>
+
+
+{% empty %}
+
+<tr>
+
+<td colspan="5" class="text-center">
+
+No orders yet.
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+
+</div>
+
+</section>
+
+{% endblock %}

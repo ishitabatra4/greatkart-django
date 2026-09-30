@@ -9,6 +9,7 @@ from .forms import OrderForm
 from .models import Order,Payment,OrderProduct
 import datetime
 import uuid
+TAX_RATE=18
 
 
 def payments(request):
@@ -30,7 +31,7 @@ def place_order(request,total=0,quantity=0):
         total+=cart_item.product.price*cart_item.quantity
         quantity+=cart_item.quantity
 
-    tax=(2*total)/100
+    tax=(total*TAX_RATE)/100
     grand_total=total+tax
 
     if request.method=='POST':

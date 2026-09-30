@@ -1,6 +1,7 @@
-from django.shortcuts import render,redirect
-from accounts.forms import RegistrationForm
-from .models import Account
+from django.shortcuts import render,redirect,get_object_or_404
+from accounts.forms import RegistrationForm,UserForm,UserProfileForm
+from .models import Account,UserProfile,VendorProfile
+from orders.models import Order, OrderProduct
 from django.contrib import messages,auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.sites.shortcuts import get_current_site
@@ -13,20 +14,40 @@ from django.conf import settings
 from django.http import HttpResponse
 from carts.views import cart_id
 from carts.models import Cart,CartItem
-from orders.models import Order
 import requests
+from django.db.models import Sum,F,FloatField,ExpressionWrapper
+from django.utils import timezone
+from store.models import Product
+from rest_framework.decorators import api_view,permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
+
+from .serializers import RegisterSerializer
+
 
 
 def register(request):
     if request.method=='POST':
-        form=RegistrationForm(request.POST)
+        form=RegistrationForm(request.POST,request.FILES)
+
         if form.is_valid():
             first_name=form.cleaned_data['first_name']
             last_name=form.cleaned_data['last_name']
             phone_number=form.cleaned_data['phone_number']
             email=form.cleaned_data['email']
             password=form.cleaned_data['password']
-            username=email.split("@")[0]
+            registration_type=form.cleaned_data['registration_type']
+
+            username=email.split('@')[0]
+
+            if Account.objects.filter(email=email).exists():
+                messages.error(request,'An account with this email already exists.')
+                return redirect('register')
+
+            if Account.objects.filter(username=username).exists():
+                username=username+str(Account.objects.count()+1)
 
             user=Account.objects.create_user(
                 first_name=first_name,
@@ -37,28 +58,49 @@ def register(request):
             )
 
             user.phone_number=phone_number
+
+            if registration_type=='vendor':
+                user.is_vendor=True
+            else:
+                user.is_vendor=False
+
             user.save()
 
+            if registration_type=='vendor':
+                VendorProfile.objects.create(
+                    user=user,
+                    store_name=form.cleaned_data['store_name'],
+                    store_description=form.cleaned_data['store_description'],
+                    store_logo=form.cleaned_data['store_logo'],
+                    is_approved=False
+                )
+
             current_site=get_current_site(request)
+
             mail_subject='Please activate your account'
 
-            message=render_to_string('accounts/account_verification_email.html',{
-                'user':user,
-                'domain':current_site,
-                'uid':urlsafe_base64_encode(force_bytes(user.pk)),
-                'token':default_token_generator.make_token(user),
-            })
+            message=render_to_string(
+                'accounts/account_verification_email.html',
+                {
+                    'user':user,
+                    'domain':current_site,
+                    'uid':urlsafe_base64_encode(force_bytes(user.pk)),
+                    'token':default_token_generator.make_token(user)
+                }
+            )
 
-            to_email=email
             send_email=EmailMessage(
                 mail_subject,
                 message,
                 settings.DEFAULT_FROM_EMAIL,
-                [to_email]
+                [email]
             )
+
             send_email.send()
 
-            return redirect('/accounts/login/?command=verification&email='+email)
+            return redirect(
+                '/accounts/login/?command=verification&email='+email
+            )
 
     else:
         form=RegistrationForm()
@@ -123,18 +165,7 @@ def login(request):
 
             messages.success(request,'you are now logged in')
 
-            url=request.META.get('HTTP_REFERER')
-
-            try:
-                query=requests.utils.urlparse(url).query
-                params=dict(x.split('=') for x in query.split('&'))
-
-                if 'next' in params:
-                    nextPage=params['next']
-                    return redirect(nextPage)
-
-            except:
-                return redirect('dashboard')
+            return redirect('home')
 
         else:
             messages.error(request,'invalid login credentials')
@@ -181,8 +212,15 @@ def dashboard(request):
         is_ordered=True
     ).order_by('-created_at')
 
+    orders_count=orders.count()
+
+    userprofile,created=UserProfile.objects.get_or_create(
+        user=request.user
+    )
+
     context={
-        'orders':orders
+        'orders_count':orders_count,
+        'userprofile':userprofile,
     }
 
     return render(request,'accounts/dashboard.html',context)
@@ -289,3 +327,291 @@ def resetPassword(request):
 
     else:
         return render(request,'accounts/resetPassword.html')
+
+
+@login_required(login_url='login')
+def my_orders(request):
+    orders=Order.objects.filter(
+        user=request.user,
+        is_ordered=True
+    ).order_by('-created_at')
+
+    context={
+        'orders':orders,
+    }
+
+    return render(request,'accounts/my_orders.html',context)
+
+
+@login_required(login_url='login')
+def edit_profile(request):
+    userprofile,created=UserProfile.objects.get_or_create(
+        user=request.user
+    )
+
+    if request.method=='POST':
+        user_form=UserForm(
+            request.POST,
+            instance=request.user
+        )
+
+        profile_form=UserProfileForm(
+            request.POST,
+            request.FILES,
+            instance=userprofile
+        )
+
+        if user_form.is_valid() and profile_form.is_valid():
+            user_form.save()
+            profile_form.save()
+
+            messages.success(
+                request,
+                'Your profile has been updated.'
+            )
+
+            return redirect('edit_profile')
+
+    else:
+        user_form=UserForm(instance=request.user)
+        profile_form=UserProfileForm(instance=userprofile)
+
+    context={
+        'user_form':user_form,
+        'profile_form':profile_form,
+        'userprofile':userprofile,
+    }
+
+    return render(
+        request,
+        'accounts/edit_profile.html',
+        context
+    )
+
+@login_required(login_url='login')
+def change_password(request):
+    if request.method == 'POST':
+        current_password = request.POST['current_password']
+        new_password = request.POST['new_password']
+        confirm_password = request.POST['confirm_password']
+
+        user = Account.objects.get(username__exact=request.user.username)
+
+        if new_password == confirm_password:
+            success = user.check_password(current_password)
+            if success:
+                user.set_password(new_password)
+                user.save()
+                # auth.logout(request)
+                messages.success(request, 'Password updated successfully.')
+                return redirect('change_password')
+            else:
+                messages.error(request, 'Please enter valid current password')
+                return redirect('change_password')
+        else:
+            messages.error(request, 'Password does not match!')
+            return redirect('change_password')
+    return render(request, 'accounts/change_password.html')
+
+@login_required(login_url='login')
+def order_detail(request, order_id):
+    order_detail = OrderProduct.objects.filter(order__order_number=order_id)
+    order = Order.objects.get(order_number=order_id)
+    subtotal = 0
+    for i in order_detail:
+        subtotal += i.product_price * i.quantity
+
+    context = {
+        'order_detail': order_detail,
+        'order': order,
+        'subtotal': subtotal,
+    }
+    return render(request, 'accounts/order_detail.html', context)
+
+def register(request):
+    if request.method=='POST':
+        form=RegistrationForm(request.POST,request.FILES)
+
+        if form.is_valid():
+            first_name=form.cleaned_data['first_name']
+            last_name=form.cleaned_data['last_name']
+            phone_number=form.cleaned_data['phone_number']
+            email=form.cleaned_data['email']
+            password=form.cleaned_data['password']
+            registration_type=form.cleaned_data['registration_type']
+
+            username=email.split('@')[0]
+
+            if Account.objects.filter(email=email).exists():
+                messages.error(request,'An account with this email already exists.')
+                return redirect('register')
+
+            if Account.objects.filter(username=username).exists():
+                username=username+str(Account.objects.count()+1)
+
+            user=Account.objects.create_user(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                username=username,
+                password=password
+            )
+
+            user.phone_number=phone_number
+
+            if registration_type=='vendor':
+                user.is_vendor=True
+            else:
+                user.is_vendor=False
+
+            user.save()
+
+            if registration_type=='vendor':
+                VendorProfile.objects.create(
+                    user=user,
+                    store_name=form.cleaned_data['store_name'],
+                    store_description=form.cleaned_data['store_description'],
+                    store_logo=form.cleaned_data['store_logo'],
+                    is_approved=False
+                )
+
+            current_site=get_current_site(request)
+            mail_subject='Please activate your account'
+            message=render_to_string('accounts/account_verification_email.html',{
+                'user':user,
+                'domain':current_site,
+                'uid':urlsafe_base64_encode(force_bytes(user.pk)),
+                'token':default_token_generator.make_token(user),
+            })
+
+            send_email=EmailMessage(
+                mail_subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [email]
+            )
+            send_email.send()
+
+            return redirect('/accounts/login/?command=verification&email='+email)
+
+    else:
+        form=RegistrationForm()
+
+    context={'form':form}
+    return render(request,'accounts/register.html',context)
+
+@login_required(login_url='login')
+def vendor_orders(request):
+    if not request.user.is_vendor:
+        messages.error(request,'You are not registered as a vendor.')
+        return redirect('dashboard')
+
+    try:
+        vendor_profile=request.user.vendorprofile
+    except VendorProfile.DoesNotExist:
+        messages.error(request,'Vendor profile not found.')
+        return redirect('dashboard')
+
+    if not vendor_profile.is_approved:
+        messages.warning(request,'Your vendor account is waiting for admin approval.')
+        return redirect('dashboard')
+
+    orders=OrderProduct.objects.filter(
+        product__vendor=request.user,
+        order__is_ordered=True
+    ).select_related('order','product').order_by('-created_at')
+
+    today=timezone.localdate()
+
+    today_orders=orders.filter(
+        created_at__date=today
+    )
+
+    orders_count=today_orders.values('order_id').distinct().count()
+
+    today_sales=today_orders.aggregate(
+        total=Sum(
+            ExpressionWrapper(
+                F('product_price')*F('quantity'),
+                output_field=FloatField()
+            )
+        )
+    )['total'] or 0
+
+    products=Product.objects.filter(
+        vendor=request.user
+    ).order_by('-created_date')
+
+    context={
+        'orders':orders,
+        'products':products,
+        'orders_count':orders_count,
+        'today_sales':today_sales,
+    }
+
+    return render(request,'store/vendor_orders.html',context)
+
+@login_required(login_url='login')
+def become_vendor(request):
+    if request.user.is_vendor:
+        messages.info(request,'You are already registered as a vendor.')
+        return redirect('dashboard')
+
+    if request.method=='POST':
+        VendorProfile.objects.create(
+            user=request.user,
+            store_name=request.POST.get('store_name'),
+            store_description=request.POST.get('store_description',''),
+            is_approved=False
+        )
+
+        request.user.is_vendor=True
+        request.user.save()
+
+        messages.success(
+            request,
+            'Vendor application submitted. Please wait for admin approval.'
+        )
+
+        return redirect('dashboard')
+
+    return render(request,'accounts/become_vendor.html')
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_me(request):
+    user=request.user
+
+    return Response({
+        'id':user.id,
+        'first_name':user.first_name,
+        'last_name':user.last_name,
+        'email':user.email,
+        'is_vendor':user.is_vendor,
+        'is_active':user.is_active,
+    })
+
+class RegisterAPIView(APIView):
+
+    def post(self,request):
+
+        serializer=RegisterSerializer(data=request.data)
+
+        if serializer.is_valid():
+
+            user=serializer.save()
+
+            return Response(
+                {
+                    'message':'Registration successful. Please activate your account.',
+                    'user_id':user.id,
+                    'email':user.email,
+                    'is_vendor':user.is_vendor
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )

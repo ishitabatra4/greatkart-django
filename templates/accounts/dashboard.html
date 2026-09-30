@@ -1,188 +1,103 @@
 {% extends 'base.html' %}
-{% load static %}
 
 {% block content %}
 
-<section class="section-content padding-y bg">
+<section class="section-conten padding-y bg">
 
 {% include 'includes/alerts.html' %}
 
 <div class="container">
+
 <div class="row">
 
-<aside class="col-md-3">
-
-<ul class="list-group">
-<a class="list-group-item active" href="#">My order history</a>
-<a class="list-group-item" href="#">Transactions</a>
-<a class="list-group-item" href="#">Return and refunds</a>
-<a class="list-group-item" href="#">Settings</a>
-<a class="list-group-item" href="#">My Selling Items</a>
-<a class="list-group-item" href="#">Received orders</a>
-</ul>
-
-<br>
-
-<a class="btn btn-light btn-block" href="{% url 'logout' %}">
-<i class="fa fa-power-off"></i>
-<span class="text">Log out</span>
-</a>
-
-</aside>
+{% include 'includes/dashboard_sidebar.html' %}
 
 <main class="col-md-9">
 
-{% if orders %}
-
-{% for order in orders %}
-
-<article class="card mb-4">
+<article class="card">
 
 <header class="card-header">
+
 <strong class="d-inline-block mr-3">
-Order ID: {{ order.order_number }}
+Logged in as:
 </strong>
-<span>
-Order Date: {{ order.created_at|date:"d F Y" }}
-</span>
+
+<span>{{ user.full_name }}</span>
+
 </header>
+
 
 <div class="card-body">
 
 <div class="row">
 
-<div class="col-md-8">
+<!-- Total Orders -->
 
-<h6 class="text-muted">Delivery to</h6>
+<div class="col-md-6">
 
-<p>
-<strong>{{ order.full_name }}</strong><br>
-Phone: {{ order.phone }}<br>
-Email: {{ order.email }}<br>
-Address: {{ order.address_line_1 }}
-{% if order.address_line_2 %}
-, {{ order.address_line_2 }}
-{% endif %}
-<br>
-{{ order.city }}, {{ order.state }}, {{ order.country }}
-</p>
+<div class="card" style="text-align:center;">
 
-</div>
+<div class="card-body">
 
-<div class="col-md-4">
+<h5 class="card-title">
+Total Orders
+</h5>
 
-<h6 class="text-muted">Payment</h6>
+<h4>
+{{ orders_count }}
+</h4>
 
-{% if order.payment %}
-
-<span class="text-success">
-<i class="fa fa-check-circle"></i>
-{{ order.payment.payment_method }}
-</span>
-
-<p>
-Payment ID: {{ order.payment.payment_id }}<br>
-Status: {{ order.payment.status }}<br>
-Total: ${{ order.order_total|floatformat:2 }}
-</p>
-
-{% else %}
-
-<span class="text-danger">Payment Pending</span>
-
-{% endif %}
-
-</div>
-
-</div>
-
-</div>
-
-<div class="table-responsive">
-
-<table class="table table-hover">
-
-{% for item in order.orderproduct_set.all %}
-
-<tr>
-
-<td width="65">
-
-{% if item.product.images %}
-<img src="{{ item.product.images.url }}" class="img-xs border">
-{% endif %}
-
-</td>
-
-<td>
-
-<p class="title mb-0">
-{{ item.product.product_name }}
-</p>
-
-<var class="price text-muted">
-${{ item.product_price|floatformat:2 }} × {{ item.quantity }}
-</var>
-
-{% if item.color or item.size %}
-<p class="text-muted small mb-0">
-{% if item.color %}Color: {{ item.color }}{% endif %}
-{% if item.size %} Size: {{ item.size }}{% endif %}
-</p>
-{% endif %}
-
-</td>
-
-<td>
-<strong>Order Status</strong><br>
-<span class="text-success">{{ order.status }}</span>
-</td>
-
-<td width="250">
-
-<a href="{% url 'order_complete' order.order_number %}" class="btn btn-light">
-Details
+<a href="{% url 'my_orders' %}">
+View Orders
 </a>
 
-</td>
+</div>
+</div>
 
-</tr>
+</div>
 
-{% endfor %}
 
-</table>
+<!-- Profile -->
+
+<div class="col-md-6">
+
+<div class="card" style="text-align:center;">
+
+<div class="card-body">
+
+{% if userprofile.profile_picture %}
+
+<img src="{{ userprofile.profile_picture.url }}"
+     alt="User Profile Picture"
+     width="50"
+     height="50"
+     style="border-radius:50%;">
+
+{% endif %}
+
+<p class="mb-0">
+{{ user.email }}
+</p>
+
+<p>
+{{ user.phone_number }}
+</p>
+
+</div>
+</div>
+
+</div>
+
+</div>
 
 </div>
 
 </article>
-
-{% endfor %}
-
-{% else %}
-
-<article class="card">
-
-<div class="card-body text-center">
-
-<h5>You have no orders yet.</h5>
-
-<p class="text-muted">
-Your completed orders will appear here.
-</p>
-
-<a href="{% url 'store' %}" class="btn btn-primary">
-Continue Shopping
-</a>
-
-</div>
-
-</article>
-
-{% endif %}
 
 </main>
 
 </div>
+
 </div>
 
 </section>

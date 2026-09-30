@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<section class="section-content padding-y">
+
+<div class="card mx-auto" style="max-width:700px;margin-top:40px;">
+<article class="card-body">
+
+<h4 class="card-title mb-4">{{ title }}</h4>
+
+{% include 'includes/alerts.html' %}
+
+<form method="POST" enctype="multipart/form-data">
+
+{% csrf_token %}
+
+<div class="form-group">
+<label>Product Name</label>
+{{ form.product_name }}
+</div>
+
+<div class="form-group">
+<label>Brand <small>(Optional)</small></label>
+{{ form.brand }}
+</div>
+
+<div class="form-group">
+<label>Description</label>
+{{ form.description }}
+</div>
+
+<div class="form-row">
+
+<div class="form-group col-md-6">
+<label>Price</label>
+<div class="input-group">
+<div class="input-group-prepend">
+<span class="input-group-text">₹</span>
+</div>
+{{ form.price }}
+</div>
+</div>
+
+<div class="form-group col-md-6">
+<label>Stock</label>
+{{ form.stock }}
+</div>
+
+</div>
+
+<div class="form-group">
+<label>Category</label>
+{{ form.category }}
+</div>
+
+<div class="form-group">
+<label>Main Product Image</label>
+{{ form.images }}
+</div>
+
+<div class="form-group">
+<label>Gallery Images</label>
+<input type="file" name="gallery_images" class="form-control" multiple>
+<small class="text-muted">
+You can select multiple images.
+</small>
+</div>
+
+<div class="form-group">
+<label>Colors</label>
+<input
+type="text"
+name="colors"
+class="form-control"
+value="{{ colors|default:'' }}"
+placeholder="Black, White, Blue"
+>
+<small class="text-muted">
+Separate colors with commas.
+</small>
+</div>
+
+<div class="form-group">
+<label>Sizes</label>
+<input
+type="text"
+name="sizes"
+class="form-control"
+value="{{ sizes|default:'' }}"
+placeholder="S, M, L, XL"
+>
+<small class="text-muted">
+Separate sizes with commas.
+</small>
+</div>
+
+<div class="form-group">
+<label>
+{{ form.is_available }}
+Available for sale
+</label>
+</div>
+
+<button type="submit" class="btn btn-primary btn-block">
+{{ title }}
+</button>
+
+<a href="{% url 'vendor_products' %}" class="btn btn-light btn-block">
+Cancel
+</a>
+
+</form>
+
+{% if gallery %}
+
+<hr>
+
+<h5>Current Gallery</h5>
+
+<div class="row">
+
+{% for image in gallery %}
+
+<div class="col-md-3 mb-3">
+<img
+src="{{ image.image.url }}"
+class="img-fluid"
+style="height:100px;width:100%;object-fit:cover;"
+>
+</div>
+
+{% endfor %}
+
+</div>
+
+{% endif %}
+
+</article>
+</div>
+
+</section>
+
+{% endblock %}

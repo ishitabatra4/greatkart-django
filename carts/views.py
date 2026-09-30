@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, render, redirect
 from carts.models import Cart, CartItem
 from store.models import Product, Variation
 from django.contrib.auth.decorators import login_required
-
+TAX_RATE=18
 
 def cart_id(request):
     cart=request.session.session_key
@@ -250,7 +250,7 @@ def cart(request, total=0, quantity=0, cart_items=None):
             total+=cart_item.product.price*cart_item.quantity
             quantity+=cart_item.quantity
 
-        tax=(2*total)/100
+        tax=(total*TAX_RATE)/100
         grand_total=total+tax
 
     except ObjectDoesNotExist:
@@ -290,7 +290,7 @@ def checkout(request, total=0, quantity=0, cart_items=None):
             total+=cart_item.product.price*cart_item.quantity
             quantity+=cart_item.quantity
 
-        tax=(2*total)/100
+        tax=(total*TAX_RATE)/100
         grand_total=total+tax
 
     except ObjectDoesNotExist:

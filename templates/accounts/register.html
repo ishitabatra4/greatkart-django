@@ -3,62 +3,156 @@
 
 {% block content %}
 
-<!-- ========================= SECTION CONTENT ========================= -->
 <section class="section-content padding-y">
+<div class="card mx-auto" style="max-width:520px; margin-top:40px;">
+<article class="card-body">
 
-<!-- ============================ COMPONENT REGISTER   ================================= -->
-	<div class="card mx-auto" style="max-width:520px; margin-top:40px;">
-      <article class="card-body">
-		{%include 'includes/alerts.html' %}
-		<header class="mb-4"><h4 class="card-title">Sign up</h4></header>
-		<form action="{% url 'register' %}" method="POST">
-            {% csrf_token %}    
-            
-				<div class="form-row">
-					<div class="col form-group">
-						<label>First name</label>
-					  	{{ form.first_name }}
-					</div> <!-- form-group end.// -->
-					<div class="col form-group">
-						<label>Last name</label>
-					  	{{ form.last_name }}
-					</div> <!-- form-group end.// -->
-				</div> <!-- form-row end.// -->
-				<div class="form-row">
-					<div class="form-group col-md-6">
-					  <label>Email Address</label>
-					  {{ form.email }}
-					</div> <!-- form-group end.// -->
-					<div class="form-group col-md-6">
-					  <label>Phone Number</label>
-					  {{ form.phone_number }}
-					</div> <!-- form-group end.// -->
-				</div> <!-- form-row.// -->
-				<div class="form-row">
-					<div class="form-group col-md-6">
-						<label>Create password</label>
-					    {{ form.password }}
-					</div> <!-- form-group end.// --> 
-					<div class="form-group col-md-6">
-						<label>Repeat password</label>
-					    {{ form.confirm_password }}
-					</div> <!-- form-group end.// -->  
-				</div>
-			    <div class="form-group">
-			        <button type="submit" class="btn btn-primary btn-block"> Register  </button>
-			    </div> <!-- form-group// -->      
-			   {{form.email.errors}}     
-			   {{form.non_field_errors}}
-			</form>
-		</article><!-- card-body.// -->
-    </div> <!-- card .// -->
-    <p class="text-center mt-4">Have an account? <a href="{% url 'login' %}">Log In</a></p>
-    <br><br>
-<!-- ============================ COMPONENT REGISTER  END.// ================================= -->
+{% include 'includes/alerts.html' %}
 
+<header class="mb-4">
+<h4 class="card-title">Sign up</h4>
+</header>
+
+<form action="{% url 'register' %}" method="POST" enctype="multipart/form-data">
+{% csrf_token %}
+
+<div class="form-group">
+
+<label>Register as</label>
+
+<div class="d-flex">
+
+<div class="mr-4">
+<label>
+<input type="radio" name="registration_type" value="customer" checked onclick="toggleVendorFields()">
+Customer
+</label>
+</div>
+
+<div>
+<label>
+<input type="radio" name="registration_type" value="vendor" onclick="toggleVendorFields()">
+Vendor
+</label>
+</div>
+
+</div>
+
+</div>
+
+
+<div class="form-row">
+
+<div class="col form-group">
+<label>First name</label>
+{{ form.first_name }}
+</div>
+
+<div class="col form-group">
+<label>Last name</label>
+{{ form.last_name }}
+</div>
+
+</div>
+
+
+<div class="form-row">
+
+<div class="form-group col-md-6">
+<label>Email Address</label>
+{{ form.email }}
+</div>
+
+<div class="form-group col-md-6">
+<label>Phone Number</label>
+{{ form.phone_number }}
+</div>
+
+</div>
+
+
+<div class="form-row">
+
+<div class="form-group col-md-6">
+<label>Create password</label>
+{{ form.password }}
+</div>
+
+<div class="form-group col-md-6">
+<label>Repeat password</label>
+{{ form.confirm_password }}
+</div>
+
+</div>
+
+
+<div id="vendor-fields" style="display:none;">
+
+<div class="form-group">
+<label>Store Name</label>
+{{ form.store_name }}
+</div>
+
+<div class="form-group">
+<label>Store Description</label>
+{{ form.store_description }}
+</div>
+
+<div class="form-group">
+<label>Store Logo</label>
+{{ form.store_logo }}
+</div>
+
+</div>
+
+
+{{ form.email.errors }}
+{{ form.store_name.errors }}
+{{ form.non_field_errors }}
+
+
+<div class="form-group">
+
+<button type="submit" class="btn btn-primary btn-block">
+Register
+</button>
+
+</div>
+
+</form>
+
+</article>
+</div>
+
+
+<p class="text-center mt-4">
+Have an account? <a href="{% url 'login' %}">Log In</a>
+</p>
+
+<br><br>
 
 </section>
-<!-- ========================= SECTION CONTENT END// ========================= -->
 
+
+<script>
+
+function toggleVendorFields() {
+
+    var vendorFields=document.getElementById('vendor-fields');
+
+    var vendorRadio=document.querySelector(
+        'input[name="registration_type"]:checked'
+    );
+
+    if(vendorRadio.value==='vendor') {
+        vendorFields.style.display='block';
+    }
+    else {
+        vendorFields.style.display='none';
+    }
+
+}
+
+</script>
 
 {% endblock %}
