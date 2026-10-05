@@ -1,5 +1,5 @@
 from django import forms
-from .models import Account,UserProfile
+from .models import Account,UserProfile,VendorProfile
 
 
 class RegistrationForm(forms.ModelForm):
@@ -19,24 +19,12 @@ class RegistrationForm(forms.ModelForm):
         'placeholder':'Confirm Password'
     }))
 
-    store_name=forms.CharField(
-        max_length=100,
+    gstin=forms.CharField(
+        max_length=15,
         required=False,
         widget=forms.TextInput(attrs={
-            'placeholder':'Enter Store Name'
+            'placeholder':'Enter GSTIN'
         })
-    )
-
-    store_description=forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={
-            'placeholder':'Tell us about your store',
-            'rows':3
-        })
-    )
-
-    store_logo=forms.ImageField(
-        required=False
     )
 
     class Meta:
@@ -71,13 +59,19 @@ class RegistrationForm(forms.ModelForm):
         password=cleaned_data.get('password')
         confirm_password=cleaned_data.get('confirm_password')
         registration_type=cleaned_data.get('registration_type')
-        store_name=cleaned_data.get('store_name')
+        gstin=cleaned_data.get('gstin')
 
         if password!=confirm_password:
-            raise forms.ValidationError('Passwords do not match')
+            self.add_error(
+                'confirm_password',
+                'Passwords do not match'
+            )
 
-        if registration_type=='vendor' and not store_name:
-            self.add_error('store_name','Store name is required for vendors.')
+        if registration_type=='vendor' and not gstin:
+            self.add_error(
+                'gstin',
+                'GSTIN is required for vendors.'
+            )
 
         return cleaned_data
 
@@ -117,3 +111,32 @@ class UserProfileForm(forms.ModelForm):
 
         for field in self.fields:
             self.fields[field].widget.attrs['class']='form-control'
+
+class VendorProfileForm(forms.ModelForm):
+
+    class Meta:
+        model=VendorProfile
+        fields=(
+            'gstin',
+            'store_name',
+            'business_type',
+            'pan',
+            'address_line_1',
+            'address_line_2',
+            'city',
+            'state',
+            'pincode',
+            'account_holder_name',
+            'account_number',
+            'ifsc_code',
+            'bank_name',
+            'shipping_method',
+            'shipping_charges',
+            'return_policy',
+        )
+
+    def __init__(self,*args,**kwargs):
+        super(VendorProfileForm,self).__init__(*args,**kwargs)
+
+        for field in self.fields:
+            self.fields[field].widget.attrs['class']='form-control'            

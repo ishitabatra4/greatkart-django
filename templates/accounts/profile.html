@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<section class="section-content padding-y">
+
+    <div class="container">
+
+        <div class="row">
+
+            <div class="col-lg-8 mx-auto">
+
+                <div class="card">
+
+                    <div class="card-body">
+
+                        <h3 class="mb-4">
+                            Profile
+                        </h3>
+
+
+                        <!-- Personal Information -->
+
+                        <h5>
+                            Personal Information
+                        </h5>
+
+                        <hr>
+
+                        <p>
+                            <strong>First name:</strong>
+                            {{ request.user.first_name }}
+                        </p>
+
+                        <p>
+                            <strong>Last name:</strong>
+                            {{ request.user.last_name }}
+                        </p>
+
+                        <p>
+                            <strong>Username:</strong>
+                            {{ request.user.username }}
+                        </p>
+
+
+                        <!-- Contact Information -->
+
+                        <hr>
+
+                        <h5>
+                            Contact Information
+                        </h5>
+
+                        <hr>
+
+                        <p>
+                            <strong>Email:</strong>
+                            {{ request.user.email }}
+                        </p>
+
+                        <p>
+                            <strong>Phone number:</strong>
+                            {{ request.user.phone_number }}
+                        </p>
+
+
+                        {% if request.user.is_vendor and vendor_profile %}
+
+                            <!-- Vendor Information -->
+
+                            <hr>
+
+                            <h5>
+                                Vendor Information
+                            </h5>
+
+                            <hr>
+
+                            <p>
+                                <strong>Gstin:</strong>
+                                {{ vendor_profile.gstin }}
+                            </p>
+
+                            <p>
+                                <strong>Store name:</strong>
+                                {{ vendor_profile.store_name }}
+                            </p>
+
+                            <p>
+                                <strong>Business type:</strong>
+                                {{ vendor_profile.business_type }}
+                            </p>
+
+                            <p>
+                                <strong>Pan:</strong>
+                                {{ vendor_profile.pan }}
+                            </p>
+
+
+                            <!-- Business Address -->
+
+                            <hr>
+
+                            <h5>
+                                Business Address
+                            </h5>
+
+                            <hr>
+
+                            <p>
+                                <strong>Address line 1:</strong>
+                                {{ vendor_profile.address_line_1 }}
+                            </p>
+
+                            <p>
+                                <strong>Address line 2:</strong>
+                                {{ vendor_profile.address_line_2 }}
+                            </p>
+
+                            <p>
+                                <strong>City:</strong>
+                                {{ vendor_profile.city }}
+                            </p>
+
+                            <p>
+                                <strong>State:</strong>
+                                {{ vendor_profile.state }}
+                            </p>
+
+                            <p>
+                                <strong>Pincode:</strong>
+                                {{ vendor_profile.pincode }}
+                            </p>
+
+
+                            <!-- Bank Details -->
+
+                            <hr>
+
+                            <h5>
+                                Bank Details
+                            </h5>
+
+                            <hr>
+
+                            <p>
+                                <strong>Account holder name:</strong>
+                                {{ vendor_profile.account_holder_name }}
+                            </p>
+
+                            <p>
+                                <strong>Account number:</strong>
+                                {{ vendor_profile.account_number }}
+                            </p>
+
+                            <p>
+                                <strong>Ifsc code:</strong>
+                                {{ vendor_profile.ifsc_code }}
+                            </p>
+
+                            <p>
+                                <strong>Bank name:</strong>
+                                {{ vendor_profile.bank_name }}
+                            </p>
+
+
+                            <!-- Shipping Details -->
+
+                            <hr>
+
+                            <h5>
+                                Shipping Details
+                            </h5>
+
+                            <hr>
+
+                            <p>
+                                <strong>Shipping method:</strong>
+                                {{ vendor_profile.shipping_method }}
+                            </p>
+
+                            <p>
+                                <strong>Shipping charges:</strong>
+                                ₹{{ vendor_profile.shipping_charges }}
+                            </p>
+
+                            <p>
+                                <strong>Return policy:</strong>
+                                {{ vendor_profile.return_policy }}
+                            </p>
+
+
+                        {% else %}
+
+                            <!-- Customer Address -->
+
+                            <hr>
+
+                            <h5>
+                                Address
+                            </h5>
+
+                            <hr>
+
+                            <p>
+                                <strong>Address line 1:</strong>
+                                {{ userprofile.address_line_1 }}
+                            </p>
+
+                            <p>
+                                <strong>Address line 2:</strong>
+                                {{ userprofile.address_line_2 }}
+                            </p>
+
+                            <p>
+                                <strong>City:</strong>
+                                {{ userprofile.city }}
+                            </p>
+
+                            <p>
+                                <strong>State:</strong>
+                                {{ userprofile.state }}
+                            </p>
+
+                            <p>
+                                <strong>Country:</strong>
+                                {{ userprofile.country }}
+                            </p>
+
+                        {% endif %}
+
+
+                        <hr>
+
+                        <a
+                            href="{% url 'edit_profile' %}"
+                            class="btn btn-primary"
+                        >
+                            Edit Profile
+                        </a>
+
+                        <a
+                            href="{% url 'dashboard' %}"
+                            class="btn btn-light"
+                        >
+                            Back to Dashboard
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}

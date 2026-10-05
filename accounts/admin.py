@@ -33,9 +33,9 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_display=('thumbnail','user','city','state','country')
 
 class VendorProfileAdmin(admin.ModelAdmin):
-    list_display=('store_name','user','approval_status','created_at')
+    list_display=('gstin','user','approval_status','created_at')
     list_filter=('is_approved',)
-    search_fields=('store_name','user__email')
+    search_fields=('user__email',)
     actions=['approve_vendors','reject_vendors']
 
     def approval_status(self,obj):

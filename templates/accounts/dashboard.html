@@ -2,104 +2,478 @@
 
 {% block content %}
 
-<section class="section-conten padding-y bg">
+<section class="section-content padding-y">
 
-{% include 'includes/alerts.html' %}
+    <div class="container">
 
-<div class="container">
+        <div class="row">
 
-<div class="row">
+            <div class="col-lg-8 mx-auto">
 
-{% include 'includes/dashboard_sidebar.html' %}
+                <div class="dashboard-wrapper">
 
-<main class="col-md-9">
+                    <!-- Dashboard Header -->
 
-<article class="card">
+                    <div class="dashboard-card dashboard-header">
 
-<header class="card-header">
-
-<strong class="d-inline-block mr-3">
-Logged in as:
-</strong>
-
-<span>{{ user.full_name }}</span>
-
-</header>
+                        <h3>
+                            Welcome {{ request.user.first_name }}
+                        </h3>
 
 
-<div class="card-body">
+                        {% if request.user.is_vendor %}
 
-<div class="row">
+                            <h5>
+                                Vendor Dashboard
+                            </h5>
 
-<!-- Total Orders -->
+                        {% else %}
 
-<div class="col-md-6">
+                            <h5>
+                                My Account
+                            </h5>
 
-<div class="card" style="text-align:center;">
+                        {% endif %}
 
-<div class="card-body">
-
-<h5 class="card-title">
-Total Orders
-</h5>
-
-<h4>
-{{ orders_count }}
-</h4>
-
-<a href="{% url 'my_orders' %}">
-View Orders
-</a>
-
-</div>
-</div>
-
-</div>
+                    </div>
 
 
-<!-- Profile -->
+                    <!-- Main Dashboard Links -->
 
-<div class="col-md-6">
+                    <div class="dashboard-card">
 
-<div class="card" style="text-align:center;">
+                        {% if request.user.is_vendor %}
 
-<div class="card-body">
+                            <a
+                                href="{% url 'vendor_orders' %}"
+                                class="dashboard-link"
+                            >
+                                Vendor Orders
+                            </a>
 
-{% if userprofile.profile_picture %}
 
-<img src="{{ userprofile.profile_picture.url }}"
-     alt="User Profile Picture"
-     width="50"
-     height="50"
-     style="border-radius:50%;">
+                            <a
+                                href="{% url 'vendor_products' %}"
+                                class="dashboard-link"
+                            >
+                                My Products
+                            </a>
 
-{% endif %}
 
-<p class="mb-0">
-{{ user.email }}
-</p>
+                            <a
+                                href="{% url 'vendor_product_add' %}"
+                                class="dashboard-link"
+                            >
+                                Add Product
+                            </a>
 
-<p>
-{{ user.phone_number }}
-</p>
 
-</div>
-</div>
+                            <a
+                                href="{% url 'request_category' %}"
+                                class="dashboard-link"
+                            >
+                                Request Category
+                            </a>
 
-</div>
+                        {% else %}
 
-</div>
+                            <a
+                                href="{% url 'my_orders' %}"
+                                class="dashboard-link"
+                            >
+                                My Orders
+                            </a>
 
-</div>
+                        {% endif %}
 
-</article>
+                    </div>
 
-</main>
 
-</div>
+                    <!-- Account Links -->
 
-</div>
+                    <div class="dashboard-card dashboard-account-links">
+
+                        <a
+                            href="{% url 'profile' %}"
+                            class="dashboard-link"
+                        >
+                            Profile
+                        </a>
+
+
+                        <a
+                            href="{% url 'edit_profile' %}"
+                            class="dashboard-link"
+                        >
+                            Edit Profile
+                        </a>
+
+
+                        <a
+                            href="{% url 'change_password' %}"
+                            class="dashboard-link"
+                        >
+                            Change Password
+                        </a>
+
+                    </div>
+
+
+                    <!-- Logout -->
+
+                    <div class="logout-card">
+
+                        <a
+                            href="{% url 'logout' %}"
+                            class="logout-link"
+                        >
+
+                            <i class="fa fa-power-off"></i>
+
+                            <span>
+                                Log out
+                            </span>
+
+                        </a>
+
+                    </div>
+
+
+                    {% if not request.user.is_vendor %}
+
+                        <!-- Customer Order History -->
+
+                        <div class="dashboard-card order-history">
+
+                            <div class="order-history-header">
+
+                                <h5>
+                                    Your order history
+                                </h5>
+
+                            </div>
+
+
+                            {% if orders %}
+
+                                <div class="table-responsive">
+
+                                    <table class="table order-table">
+
+                                        <thead>
+
+                                            <tr>
+
+                                                <th>
+                                                    Order #
+                                                </th>
+
+                                                <th>
+                                                    Billing Name
+                                                </th>
+
+                                                <th>
+                                                    Phone
+                                                </th>
+
+                                                <th>
+                                                    Order Total
+                                                </th>
+
+                                                <th>
+                                                    Date
+                                                </th>
+
+                                            </tr>
+
+                                        </thead>
+
+
+                                        <tbody>
+
+                                            {% for order in orders %}
+
+                                                <tr>
+
+                                                    <td>
+
+                                                        <a
+                                                            href="{% url 'order_detail' order.order_number %}"
+                                                            class="order-link"
+                                                        >
+                                                            {{ order.order_number }}
+                                                        </a>
+
+                                                    </td>
+
+
+                                                    <td>
+                                                        {{ order.first_name }}
+                                                        {{ order.last_name }}
+                                                    </td>
+
+
+                                                    <td>
+                                                        {{ order.phone }}
+                                                    </td>
+
+
+                                                    <td>
+                                                        ₹{{ order.order_total }}
+                                                    </td>
+
+
+                                                    <td>
+                                                        {{ order.created_at|date:"d M Y" }}
+                                                    </td>
+
+                                                </tr>
+
+                                            {% endfor %}
+
+                                        </tbody>
+
+                                    </table>
+
+                                </div>
+
+                            {% else %}
+
+                                <div class="no-orders">
+
+                                    <p>
+                                        You have not placed any orders yet.
+                                    </p>
+
+                                    <a
+                                        href="{% url 'store' %}"
+                                        class="shop-now-link"
+                                    >
+                                        Continue Shopping
+                                    </a>
+
+                                </div>
+
+                            {% endif %}
+
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
 
 </section>
+
+
+<style>
+
+    .dashboard-wrapper {
+        max-width: 700px;
+        margin: 30px auto;
+    }
+
+
+    .dashboard-card {
+        background: #ffffff;
+        border: 1px solid #e5e5e5;
+        border-radius: 5px;
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+
+
+    .dashboard-header {
+        padding: 25px 20px;
+    }
+
+
+    .dashboard-header h3 {
+        margin: 0 0 8px 0;
+        color: #333333;
+        font-size: 28px;
+        font-weight: 600;
+    }
+
+
+    .dashboard-header h5 {
+        margin: 0;
+        color: #555555;
+        font-size: 18px;
+        font-weight: 500;
+    }
+
+
+    .dashboard-link {
+        display: block;
+        padding: 14px 20px;
+        background: #ffffff;
+        border-bottom: 1px solid #e5e5e5;
+        color: #356ae6;
+        font-size: 16px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+
+    .dashboard-link:last-child {
+        border-bottom: none;
+    }
+
+
+    .dashboard-link:hover {
+        background: #f5f7ff;
+        color: #356ae6;
+        text-decoration: none;
+    }
+
+
+    .dashboard-account-links {
+        margin-bottom: 20px;
+    }
+
+
+    .logout-card {
+        background: #ffffff;
+        border: 1px solid #e5e5e5;
+        border-radius: 5px;
+        margin-bottom: 24px;
+    }
+
+
+    .logout-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 11px 20px;
+        color: #333333;
+        font-size: 16px;
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+
+    .logout-link:hover {
+        background: #f5f7ff;
+        color: #356ae6;
+        text-decoration: none;
+    }
+
+
+    .logout-link i {
+        color: #666666;
+    }
+
+
+    .logout-link:hover i {
+        color: #356ae6;
+    }
+
+
+    .order-history {
+        margin-top: 5px;
+    }
+
+
+    .order-history-header {
+        padding: 18px 20px;
+        border-bottom: 1px solid #e5e5e5;
+    }
+
+
+    .order-history-header h5 {
+        margin: 0;
+        color: #333333;
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+
+    .order-table {
+        margin: 0;
+    }
+
+
+    .order-table thead th {
+        color: #333333;
+        font-size: 15px;
+        font-weight: 600;
+        border-bottom: 1px solid #e5e5e5;
+        padding: 15px 12px;
+        white-space: nowrap;
+    }
+
+
+    .order-table tbody td {
+        color: #555555;
+        font-size: 14px;
+        padding: 15px 12px;
+        vertical-align: middle;
+    }
+
+
+    .order-link {
+        color: #356ae6;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+
+    .order-link:hover {
+        color: #2455c7;
+        text-decoration: none;
+    }
+
+
+    .no-orders {
+        padding: 30px 20px;
+        text-align: center;
+    }
+
+
+    .no-orders p {
+        color: #666666;
+        margin-bottom: 15px;
+    }
+
+
+    .shop-now-link {
+        color: #356ae6;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+
+    .shop-now-link:hover {
+        color: #2455c7;
+        text-decoration: none;
+    }
+
+
+    @media (max-width: 767px) {
+
+        .dashboard-wrapper {
+            margin: 15px auto;
+        }
+
+
+        .dashboard-header h3 {
+            font-size: 24px;
+        }
+
+
+        .order-table {
+            min-width: 650px;
+        }
+
+    }
+
+</style>
 
 {% endblock %}

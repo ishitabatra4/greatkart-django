@@ -83,11 +83,33 @@ class UserProfile(models.Model):
 
 class VendorProfile(models.Model):
     user=models.OneToOneField(Account,on_delete=models.CASCADE)
-    store_name=models.CharField(max_length=100)
-    store_description=models.TextField(blank=True)
-    store_logo=models.ImageField(upload_to='vendor/logos',blank=True)
+
+    gstin=models.CharField(max_length=15)
+    store_name=models.CharField(max_length=100,blank=True)
+    business_type=models.CharField(max_length=100,blank=True)
+    pan=models.CharField(max_length=10,blank=True)
+
+    address_line_1=models.CharField(max_length=100,blank=True)
+    address_line_2=models.CharField(max_length=100,blank=True)
+    city=models.CharField(max_length=50,blank=True)
+    state=models.CharField(max_length=50,blank=True)
+    pincode=models.CharField(max_length=10,blank=True)
+
+    account_holder_name=models.CharField(max_length=100,blank=True)
+    account_number=models.CharField(max_length=30,blank=True)
+    ifsc_code=models.CharField(max_length=20,blank=True)
+    bank_name=models.CharField(max_length=100,blank=True)
+
+    shipping_method=models.CharField(max_length=100,blank=True)
+    shipping_charges=models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0
+    )
+    return_policy=models.TextField(blank=True)
+
     is_approved=models.BooleanField(default=False)
     created_at=models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.store_name
+        return self.store_name or self.user.email

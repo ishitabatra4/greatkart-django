@@ -4,7 +4,9 @@
 {% block content %}
 
 <section class="section-content padding-y">
+
 <div class="card mx-auto" style="max-width:520px; margin-top:40px;">
+
 <article class="card-body">
 
 {% include 'includes/alerts.html' %}
@@ -13,7 +15,8 @@
 <h4 class="card-title">Sign up</h4>
 </header>
 
-<form action="{% url 'register' %}" method="POST" enctype="multipart/form-data">
+<form action="{% url 'register' %}" method="POST">
+
 {% csrf_token %}
 
 <div class="form-group">
@@ -23,17 +26,32 @@
 <div class="d-flex">
 
 <div class="mr-4">
+
 <label>
-<input type="radio" name="registration_type" value="customer" checked onclick="toggleVendorFields()">
+<input
+    type="radio"
+    name="registration_type"
+    value="customer"
+    checked
+    onclick="toggleVendorFields()"
+>
 Customer
 </label>
+
 </div>
 
 <div>
+
 <label>
-<input type="radio" name="registration_type" value="vendor" onclick="toggleVendorFields()">
+<input
+    type="radio"
+    name="registration_type"
+    value="vendor"
+    onclick="toggleVendorFields()"
+>
 Vendor
 </label>
+
 </div>
 
 </div>
@@ -44,13 +62,19 @@ Vendor
 <div class="form-row">
 
 <div class="col form-group">
+
 <label>First name</label>
+
 {{ form.first_name }}
+
 </div>
 
 <div class="col form-group">
+
 <label>Last name</label>
+
 {{ form.last_name }}
+
 </div>
 
 </div>
@@ -59,13 +83,19 @@ Vendor
 <div class="form-row">
 
 <div class="form-group col-md-6">
+
 <label>Email Address</label>
+
 {{ form.email }}
+
 </div>
 
 <div class="form-group col-md-6">
+
 <label>Phone Number</label>
+
 {{ form.phone_number }}
+
 </div>
 
 </div>
@@ -74,13 +104,19 @@ Vendor
 <div class="form-row">
 
 <div class="form-group col-md-6">
+
 <label>Create password</label>
+
 {{ form.password }}
+
 </div>
 
 <div class="form-group col-md-6">
+
 <label>Repeat password</label>
+
 {{ form.confirm_password }}
+
 </div>
 
 </div>
@@ -89,31 +125,29 @@ Vendor
 <div id="vendor-fields" style="display:none;">
 
 <div class="form-group">
-<label>Store Name</label>
-{{ form.store_name }}
-</div>
 
-<div class="form-group">
-<label>Store Description</label>
-{{ form.store_description }}
-</div>
+<label>GSTIN</label>
 
-<div class="form-group">
-<label>Store Logo</label>
-{{ form.store_logo }}
+{{ form.gstin }}
+
 </div>
 
 </div>
 
 
+{{ form.registration_type.errors }}
 {{ form.email.errors }}
-{{ form.store_name.errors }}
+{{ form.gstin.errors }}
+{{ form.confirm_password.errors }}
 {{ form.non_field_errors }}
 
 
 <div class="form-group">
 
-<button type="submit" class="btn btn-primary btn-block">
+<button
+    type="submit"
+    class="btn btn-primary btn-block"
+>
 Register
 </button>
 
@@ -122,11 +156,15 @@ Register
 </form>
 
 </article>
+
 </div>
 
 
 <p class="text-center mt-4">
-Have an account? <a href="{% url 'login' %}">Log In</a>
+
+Have an account?
+<a href="{% url 'login' %}">Log In</a>
+
 </p>
 
 <br><br>
@@ -145,14 +183,18 @@ function toggleVendorFields() {
     );
 
     if(vendorRadio.value==='vendor') {
+
         vendorFields.style.display='block';
+
     }
     else {
+
         vendorFields.style.display='none';
+
     }
 
 }
 
 </script>
 
-{% endblock %}
+{% endblock %}s

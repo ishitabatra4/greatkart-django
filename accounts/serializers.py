@@ -14,9 +14,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         ]
     )
 
-    store_name=serializers.CharField(required=False,allow_blank=True)
-    store_description=serializers.CharField(required=False,allow_blank=True)
-    store_logo=serializers.ImageField(required=False,allow_null=True)
+    gstin=serializers.CharField(
+        max_length=15,
+        required=False,
+        allow_blank=True
+    )
 
     class Meta:
         model=Account
@@ -28,9 +30,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'password',
             'confirm_password',
             'registration_type',
-            'store_name',
-            'store_description',
-            'store_logo',
+            'gstin',
         ]
 
     def validate_email(self,value):
@@ -47,9 +47,9 @@ class RegisterSerializer(serializers.ModelSerializer):
                 'Passwords do not match.'
             )
 
-        if data['registration_type']=='vendor' and not data.get('store_name'):
+        if data['registration_type']=='vendor' and not data.get('gstin'):
             raise serializers.ValidationError(
-                'Store name is required for vendors.'
+                'GSTIN is required for vendors.'
             )
 
         return data
@@ -61,11 +61,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         password=validated_data.pop('password')
         validated_data.pop('confirm_password')
 
-        store_name=validated_data.pop('store_name','')
-        store_description=validated_data.pop('store_description','')
-        store_logo=validated_data.pop('store_logo',None)
+        gstin=validated_data.pop('gstin','')
 
         email=validated_data['email']
+        phone_number=validated_data.pop('phone_number')
 
         username=email.split('@')[0]
 
@@ -75,9 +74,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         user=Account.objects.create_user(
             username=username,
             password=password,
-            **validated_data
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            email=email
         )
 
+        user.phone_number=phone_number
         user.is_vendor=registration_type=='vendor'
         user.is_active=False
         user.save()
@@ -85,10 +87,36 @@ class RegisterSerializer(serializers.ModelSerializer):
         if registration_type=='vendor':
             VendorProfile.objects.create(
                 user=user,
-                store_name=store_name,
-                store_description=store_description,
-                store_logo=store_logo,
+                gstin=gstin,
                 is_approved=False
             )
 
         return user
+
+class VendorProfileSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model=VendorProfile
+        fields=[
+            'gstin',
+            'store_name',
+            'business_type',
+            'pan',
+            'address_line_1',
+            'address_line_2',
+            'city',
+            'state',
+            'pincode',
+            'account_holder_name',
+            'account_number',
+            'ifsc_code',
+            'bank_name',
+            'shipping_method',
+            'shipping_charges',
+            'return_policy',
+            'is_approved',
+        ]
+
+        read_only_fields=[
+            'is_approved',
+        ]

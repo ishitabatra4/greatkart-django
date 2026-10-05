@@ -3,21 +3,45 @@
 {% block content %}
 
 <section class="section-content padding-y">
+
 <div class="container">
 
-<h3 class="mb-4">Vendor Dashboard</h3>
+<div class="row">
+
+<!-- Sidebar -->
+
+{% include 'includes/dashboard_sidebar.html' %}
+
+
+<!-- Vendor Dashboard -->
+
+<main class="col-md-9">
+
+<h3 class="mb-4">
+Vendor Dashboard
+</h3>
+
 
 <div class="mb-3">
 
-<a href="{% url 'vendor_products' %}" class="btn btn-primary">
+<a
+    href="{% url 'vendor_products' %}"
+    class="btn btn-primary"
+>
 Manage My Products
 </a>
 
-<a href="{% url 'vendor_product_add' %}" class="btn btn-success">
+<a
+    href="{% url 'vendor_product_add' %}"
+    class="btn btn-success"
+>
 + Add Product
 </a>
 
-<a href="{% url 'request_category' %}" class="btn btn-outline-primary">
+<a
+    href="{% url 'request_category' %}"
+    class="btn btn-outline-primary"
+>
 Request New Category
 </a>
 
@@ -29,47 +53,65 @@ Request New Category
 <div class="row">
 
 <div class="col-md-4">
+
 <div class="card">
+
 <div class="card-body">
 
-<h6>Today's Orders</h6>
+<h6>
+Today's Orders
+</h6>
 
 <h3>
 {{ orders_count }}
 </h3>
 
 </div>
+
 </div>
+
 </div>
 
 
 <div class="col-md-4">
+
 <div class="card">
+
 <div class="card-body">
 
-<h6>Today's Sales</h6>
+<h6>
+Today's Sales
+</h6>
 
 <h3>
 ₹{{ today_sales }}
 </h3>
 
 </div>
+
 </div>
+
 </div>
 
 
 <div class="col-md-4">
+
 <div class="card">
+
 <div class="card-body">
 
-<h6>Total Products</h6>
+<h6>
+Total Products
+</h6>
 
 <h3>
 {{ products.count }}
 </h3>
 
 </div>
+
 </div>
+
 </div>
 
 </div>
@@ -81,7 +123,9 @@ Request New Category
 
 <div class="card-body">
 
-<h5>My Products</h5>
+<h5>
+My Products
+</h5>
 
 <div class="table-responsive">
 
@@ -148,19 +192,19 @@ Out of Stock
 
 <td>
 
-<a href="{% url 'vendor_product_edit' product.id %}"
-   class="btn btn-sm btn-primary">
-
+<a
+    href="{% url 'vendor_product_edit' product.id %}"
+    class="btn btn-sm btn-primary"
+>
 Edit
-
 </a>
 
 
-<a href="{% url 'vendor_product_delete' product.id %}"
-   class="btn btn-sm btn-danger">
-
+<a
+    href="{% url 'vendor_product_delete' product.id %}"
+    class="btn btn-sm btn-danger"
+>
 Delete
-
 </a>
 
 </td>
@@ -172,10 +216,11 @@ Delete
 
 <tr>
 
-<td colspan="5" class="text-center">
-
+<td
+    colspan="5"
+    class="text-center"
+>
 No products added yet.
-
 </td>
 
 </tr>
@@ -199,7 +244,9 @@ No products added yet.
 
 <div class="card-body">
 
-<h5>My Orders</h5>
+<h5>
+My Orders
+</h5>
 
 <div class="table-responsive">
 
@@ -231,37 +278,27 @@ No products added yet.
 <tr>
 
 <td>
-
 #{{ item.order.order_number }}
-
 </td>
 
 
 <td>
-
 {{ item.product.product_name }}
-
 </td>
 
 
 <td>
-
 {{ item.quantity }}
-
 </td>
 
 
 <td>
-
 ₹{{ item.product_price }}
-
 </td>
 
 
 <td>
-
 {{ item.created_at|date:"d M Y" }}
-
 </td>
 
 </tr>
@@ -271,10 +308,11 @@ No products added yet.
 
 <tr>
 
-<td colspan="5" class="text-center">
-
+<td
+    colspan="5"
+    class="text-center"
+>
 No orders yet.
-
 </td>
 
 </tr>
@@ -291,6 +329,9 @@ No orders yet.
 
 </div>
 
+</main>
+
+</div>
 
 </div>
 

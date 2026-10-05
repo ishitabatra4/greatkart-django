@@ -203,9 +203,6 @@ Sign in
 Register
 </a>
 
-<span class="dark-transp"> | </span>
-
-
 </div>
 
 </div>
@@ -232,12 +229,6 @@ Welcome {{ user.first_name }}
 
 <a href="{% url 'vendor_orders' %}">
 Vendor Dashboard
-</a>
-
-<span class="dark-transp"> | </span>
-
-<a href="{% url 'my_orders' %}">
-My Orders
 </a>
 
 {% else %}
@@ -273,6 +264,17 @@ My Orders
 
 {% endif %}
 
+
+<!-- Profile -->
+
+<span class="dark-transp"> | </span>
+
+<a href="{% url 'profile' %}">
+Profile
+</a>
+
+
+<!-- Logout -->
 
 <span class="dark-transp"> | </span>
 
