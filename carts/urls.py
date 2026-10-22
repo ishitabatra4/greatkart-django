@@ -14,4 +14,7 @@ urlpatterns = [
     path('api/clear/',views.api_clear_cart,name='api_clear_cart'),
     path('api/cart/', views.api_cart, name='api_cart'),
     path('api/checkout/',views.api_checkout,name='api_checkout'),
+    path('api/admin/carts/', views.api_admin_carts, name='api_admin_carts'),
+    path('api/admin/carts/<int:cart_id>/', views.api_admin_cart_detail, name='api_admin_cart_detail'),
+    path('api/admin/carts/<int:cart_id>/delete/', views.api_admin_cart_delete, name='api_admin_cart_delete'),
 ]

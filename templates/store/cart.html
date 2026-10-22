@@ -1,217 +1,612 @@
+
 {% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
 
 <section class="section-content padding-y bg">
-<div class="container">
+<div class="container"
+     id="api-cart"
+     data-api-url="/cart/api/cart/">
 
-{% if not cart_items %}
-
-<h2 class="text-center">Your cart is empty</h2>
-<br>
-<div class="text-center">
-    <a href="{% url 'store' %}" class="btn btn-primary">Continue Shopping</a>
-</div>
-
-{% else %}
-
-<div class="row">
-
-<aside class="col-lg-9">
-
-<div class="card">
-
-<table class="table table-borderless table-shopping-cart">
-
-<thead class="text-muted">
-<tr class="small text-uppercase">
-    <th scope="col">Product</th>
-    <th scope="col" width="120">Quantity</th>
-    <th scope="col" width="120">Price</th>
-    <th scope="col" class="text-right" width="200"></th>
-</tr>
-</thead>
-
-<tbody>
-
-{% for cart_item in cart_items %}
-
-<tr>
-
-<td>
-<figure class="itemside align-items-center">
-
-<div class="aside">
-
-{% if cart_item.product.images %}
-    <img src="{{ cart_item.product.images.url }}" class="img-sm" alt="{{ cart_item.product.product_name }}">
-{% else %}
-    <div class="img-sm d-flex align-items-center justify-content-center bg-light text-muted">
-        No image
+    <!-- Loading state for API cart -->
+    <div id="api-cart-loading" class="text-center py-4" hidden>
+        <p>Loading your cart...</p>
     </div>
-{% endif %}
 
-</div>
+    <!-- API error message -->
+    <div id="api-cart-error" class="alert alert-warning" hidden>
+        Unable to refresh your cart. Showing the existing cart instead.
+    </div>
 
-<figcaption class="info">
+    <!-- API empty cart -->
+    <div id="api-cart-empty" class="text-center" hidden>
+        <h2>Your cart is empty</h2>
+        <br>
+        <a href="{% url 'store' %}" class="btn btn-primary">
+            Continue Shopping
+        </a>
+    </div>
 
-<a href="{{ cart_item.product.get_url }}" class="title text-dark">
-    {{ cart_item.product.product_name }}
-</a>
+    <!-- API-rendered cart -->
+    <div id="api-cart-content" hidden>
+        <div class="row">
 
-<p class="text-muted small">
-{% if cart_item.variations.all %}
-    {% for item in cart_item.variations.all %}
-        {{ item.variation_category|capfirst }}: {{ item.variation_value|capfirst }}
-    {% endfor %}
-{% endif %}
-</p>
+            <aside class="col-lg-9">
+                <div class="card">
+                    <div class="table-responsive">
+                        <table class="table table-borderless table-shopping-cart">
+                            <thead class="text-muted">
+                                <tr class="small text-uppercase">
+                                    <th scope="col">Product</th>
+                                    <th scope="col" width="120">Quantity</th>
+                                    <th scope="col" width="150">Price</th>
+                                    <th scope="col" class="text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="api-cart-items"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </aside>
 
-</figcaption>
+            <aside class="col-lg-3">
+                <div class="card">
+                    <div class="card-body">
 
-</figure>
-</td>
+                        <dl class="dlist-align">
+                            <dt>Total price:</dt>
+                            <dd class="text-right" id="api-cart-subtotal">₹0.00</dd>
+                        </dl>
 
-<td>
+                        <dl class="dlist-align">
+                            <dt>Tax:</dt>
+                            <dd class="text-right" id="api-cart-tax">₹0.00</dd>
+                        </dl>
 
-<div class="col">
+                        <dl class="dlist-align">
+                            <dt>Total:</dt>
+                            <dd class="text-right text-dark">
+                                <strong id="api-cart-grand-total">₹0.00</strong>
+                            </dd>
+                        </dl>
 
-<div class="input-group input-spinner">
+                        <hr>
 
-<div class="input-group-prepend">
-    <a href="{% url 'remove_cart' cart_item.product.id cart_item.id %}"
-       class="btn btn-light"
-       type="button"
-       id="button-plus">
-        <i class="fa fa-minus"></i>
-    </a>
-</div>
+                        <p class="text-center mb-3">
+                            <img src="{% static 'images/misc/payments.png' %}"
+                                 height="26"
+                                 alt="Payment methods">
+                        </p>
+                        <button type="button"
+                                id="api-clear-cart-btn"
+                                class="btn btn-danger btn-block mb-2">
+                            <i class="fa fa-trash"></i> Clear Cart
+                        </button>
 
-<input type="text"
-       class="form-control"
-       value="{{ cart_item.quantity }}"
-       min="1"
-       max="10">
+                        <div id="api-clear-cart-message" class="small mb-2"></div>
+                        <a href="{% url 'checkout' %}"
+                           class="btn btn-primary btn-block">
+                            Checkout
+                        </a>
 
-<div class="input-group-append">
+                        <a href="{% url 'store' %}"
+                           class="btn btn-light btn-block">
+                            Continue Shopping
+                        </a>
+                    </div>
+                </div>
+            </aside>
 
-<form action="{% url 'add_cart' cart_item.product.id %}" method="post">
+        </div>
+    </div>
 
-{% csrf_token %}
+    <!-- Existing Django/session cart fallback -->
+    <div id="django-cart-fallback" {% if not cart_items %}hidden{% endif %}>
 
-{% for item in cart_item.variations.all %}
-    <input type="hidden"
-           name="{{ item.variation_category|lower }}"
-           value="{{ item.variation_value|capfirst }}">
-{% endfor %}
+        {% if not cart_items %}
 
-<button class="btn btn-light"
-        type="submit"
-        id="button-minus">
-    <i class="fa fa-plus"></i>
-</button>
+            <h2 class="text-center">Your cart is empty</h2>
+            <br>
+            <div class="text-center">
+                <a href="{% url 'store' %}" class="btn btn-primary">
+                    Continue Shopping
+                </a>
+            </div>
 
-</form>
+        {% else %}
 
-</div>
+            <div class="row">
 
-</div>
+                <aside class="col-lg-9">
+                    <div class="card">
+                        <div class="table-responsive">
+                            <table class="table table-borderless table-shopping-cart">
 
-</div>
+                                <thead class="text-muted">
+                                    <tr class="small text-uppercase">
+                                        <th scope="col">Product</th>
+                                        <th scope="col" width="120">Quantity</th>
+                                        <th scope="col" width="120">Price</th>
+                                        <th scope="col" class="text-right" width="150"></th>
+                                    </tr>
+                                </thead>
 
-</td>
+                                <tbody>
+                                {% for cart_item in cart_items %}
+                                    <tr>
+                                        <td>
+                                            <figure class="itemside align-items-center">
+                                                <div class="aside">
+                                                    {% if cart_item.product.images %}
+                                                        <img src="{{ cart_item.product.images.url }}"
+                                                             class="img-sm"
+                                                             alt="{{ cart_item.product.product_name }}">
+                                                    {% else %}
+                                                        <div class="img-sm d-flex align-items-center justify-content-center bg-light text-muted">
+                                                            No image
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
 
-<td>
+                                                <figcaption class="info">
+                                                    <a href="{{ cart_item.product.get_url }}"
+                                                       class="title text-dark">
+                                                        {{ cart_item.product.product_name }}
+                                                    </a>
 
-<div class="price-wrap">
+                                                    <p class="text-muted small">
+                                                        {% for item in cart_item.variations.all %}
+                                                            {{ item.variation_category|capfirst }}:
+                                                            {{ item.variation_value|capfirst }}
+                                                            {% if not forloop.last %}, {% endif %}
+                                                        {% endfor %}
+                                                    </p>
+                                                </figcaption>
+                                            </figure>
+                                        </td>
 
-<var class="price">
-    ₹{{ cart_item.sub_total|floatformat:2 }}
-</var>
+                                        <td>
+                                            <div class="input-group input-spinner">
+                                                <div class="input-group-prepend">
+                                                    <a href="{% url 'remove_cart' cart_item.product.id cart_item.id %}"
+                                                       class="btn btn-light"
+                                                       aria-label="Decrease quantity">
+                                                        <i class="fa fa-minus"></i>
+                                                    </a>
+                                                </div>
 
-<small class="text-muted">
-    ₹{{ cart_item.product.price|floatformat:2 }} each
-</small>
+                                                <input type="text"
+                                                       class="form-control"
+                                                       value="{{ cart_item.quantity }}"
+                                                       readonly
+                                                       aria-label="Quantity">
 
-</div>
+                                                <div class="input-group-append">
+                                                    <form action="{% url 'add_cart' cart_item.product.id %}"
+                                                          method="post">
+                                                        {% csrf_token %}
 
-</td>
+                                                        {% for item in cart_item.variations.all %}
+                                                            <input type="hidden"
+                                                                   name="{{ item.variation_category|lower }}"
+                                                                   value="{{ item.variation_value }}">
+                                                        {% endfor %}
 
-<td class="text-right">
+                                                        <button class="btn btn-light"
+                                                                type="submit"
+                                                                aria-label="Increase quantity">
+                                                            <i class="fa fa-plus"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </td>
 
-<a href="{% url 'remove_cart_item' cart_item.product.id cart_item.id %}"
-   onclick="return confirm('Are you sure you want to remove this item?')"
-   class="btn btn-danger">
-    Remove
-</a>
+                                        <td>
+                                            <div class="price-wrap">
+                                                <var class="price">
+                                                    ₹{{ cart_item.sub_total|floatformat:2 }}
+                                                </var>
+                                                <small class="text-muted">
+                                                    ₹{{ cart_item.product.price|floatformat:2 }} each
+                                                </small>
+                                            </div>
+                                        </td>
 
-</td>
+                                        <td class="text-right">
+                                            <a href="{% url 'remove_cart_item' cart_item.product.id cart_item.id %}"
+                                               onclick="return confirm('Are you sure you want to remove this item?')"
+                                               class="btn btn-danger">
+                                                Remove
+                                            </a>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
 
-</tr>
+                            </table>
+                        </div>
+                    </div>
+                </aside>
 
-{% endfor %}
+                <aside class="col-lg-3">
+                    <div class="card">
+                        <div class="card-body">
 
-</tbody>
+                            <dl class="dlist-align">
+                                <dt>Total price:</dt>
+                                <dd class="text-right">
+                                    ₹{{ total|floatformat:2 }}
+                                </dd>
+                            </dl>
 
-</table>
+                            <dl class="dlist-align">
+                                <dt>Tax:</dt>
+                                <dd class="text-right">
+                                    ₹{{ tax|floatformat:2 }}
+                                </dd>
+                            </dl>
 
-</div>
+                            <dl class="dlist-align">
+                                <dt>Total:</dt>
+                                <dd class="text-right text-dark">
+                                    <strong>₹{{ grand_total|floatformat:2 }}</strong>
+                                </dd>
+                            </dl>
 
-</aside>
+                            <hr>
 
-<aside class="col-lg-3">
+                            <p class="text-center mb-3">
+                                <img src="{% static 'images/misc/payments.png' %}"
+                                     height="26"
+                                     alt="Payment methods">
+                            </p>
+                        
+                            <a href="{% url 'checkout' %}"
+                               class="btn btn-primary btn-block">
+                                Checkout
+                            </a>
 
-<div class="card">
+                            <a href="{% url 'store' %}"
+                               class="btn btn-light btn-block">
+                                Continue Shopping
+                            </a>
 
-<div class="card-body">
+                        </div>
+                    </div>
+                </aside>
 
-<dl class="dlist-align">
-    <dt>Total price:</dt>
-    <dd class="text-right">
-        ₹{{ total|floatformat:2 }}
-    </dd>
-</dl>
+            </div>
 
-<dl class="dlist-align">
-    <dt>Tax:</dt>
-    <dd class="text-right">
-        ₹{{ tax|floatformat:2 }}
-    </dd>
-</dl>
-
-<dl class="dlist-align">
-    <dt>Total:</dt>
-    <dd class="text-right text-dark b">
-        <strong>₹{{ grand_total|floatformat:2 }}</strong>
-    </dd>
-</dl>
-
-<hr>
-
-<p class="text-center mb-3">
-    <img src="{% static 'images/misc/payments.png' %}" height="26">
-</p>
-
-<a href="{% url 'checkout' %}" class="btn btn-primary btn-block">
-    Checkout
-</a>
-
-<a href="{% url 'store' %}" class="btn btn-light btn-block">
-    Continue Shopping
-</a>
-
-</div>
-
-</div>
-
-</aside>
-
-</div>
-
-{% endif %}
+        {% endif %}
+    </div>
 
 </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+    const root = document.getElementById('api-cart');
+
+    if (!root || !window.API) {
+        return;
+    }
+
+    const loading = document.getElementById('api-cart-loading');
+    const errorBox = document.getElementById('api-cart-error');
+    const emptyBox = document.getElementById('api-cart-empty');
+    const apiContent = document.getElementById('api-cart-content');
+    const fallback = document.getElementById('django-cart-fallback');
+    const itemsBody = document.getElementById('api-cart-items');
+
+    function money(value) {
+        const number = Number(value || 0);
+        return '₹' + number.toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function showFallback(message) {
+        loading.hidden = true;
+        apiContent.hidden = true;
+        emptyBox.hidden = true;
+        fallback.hidden = false;
+
+        if (message) {
+            errorBox.textContent = message;
+            errorBox.hidden = false;
+        }
+    }
+
+    function createCellText(tag, className, text) {
+        const element = document.createElement(tag);
+        if (className) element.className = className;
+        element.textContent = text;
+        return element;
+    }
+
+    function renderCart(data) {
+        itemsBody.replaceChildren();
+
+        const items = Array.isArray(data.items) ? data.items : [];
+
+        if (items.length === 0) {
+            loading.hidden = true;
+            apiContent.hidden = true;
+            fallback.hidden = true;
+            emptyBox.hidden = false;
+            errorBox.hidden = true;
+            return;
+        }
+
+        items.forEach(function (item) {
+            const row = document.createElement('tr');
+
+            // Product details
+            const productCell = document.createElement('td');
+            const figure = document.createElement('figure');
+            figure.className = 'itemside align-items-center';
+
+            const imageWrap = document.createElement('div');
+            imageWrap.className = 'aside';
+
+            if (item.image) {
+                const image = document.createElement('img');
+                image.src = item.image;
+                image.alt = item.product_name || 'Product';
+                image.className = 'img-sm';
+                imageWrap.appendChild(image);
+            } else {
+                const noImage = createCellText(
+                    'div',
+                    'img-sm d-flex align-items-center justify-content-center bg-light text-muted',
+                    'No image'
+                );
+                imageWrap.appendChild(noImage);
+            }
+
+            const caption = document.createElement('figcaption');
+            caption.className = 'info';
+
+            const title = createCellText(
+                'span',
+                'title text-dark',
+                item.product_name || 'Product'
+            );
+            caption.appendChild(title);
+
+            const variations = document.createElement('p');
+            variations.className = 'text-muted small';
+
+            if (Array.isArray(item.variations)) {
+                variations.textContent = item.variations
+                    .map(function (variation) {
+                        return variation.category + ': ' + variation.value;
+                    })
+                    .join(', ');
+            }
+
+            caption.appendChild(variations);
+            figure.append(imageWrap, caption);
+            productCell.appendChild(figure);
+
+            // Quantity
+            const quantityCell = document.createElement('td');
+            const quantityWrap = document.createElement('div');
+            quantityWrap.className = 'input-group input-spinner';
+
+            const minusWrap = document.createElement('div');
+            minusWrap.className = 'input-group-prepend';
+
+            const minus = createCellText('button', 'btn btn-light', '−');
+            minus.type = 'button';
+            minus.setAttribute('aria-label', 'Decrease quantity');
+            minus.disabled = Number(item.quantity) <= 1;
+            minus.addEventListener('click', function () {
+                updateQuantity(item.cart_item_id, 'decrease');
+            });
+            minusWrap.appendChild(minus);
+
+            const quantityInput = document.createElement('input');
+            quantityInput.type = 'text';
+            quantityInput.className = 'form-control';
+            quantityInput.value = item.quantity;
+            quantityInput.readOnly = true;
+            quantityInput.setAttribute('aria-label', 'Quantity');
+
+            const plusWrap = document.createElement('div');
+            plusWrap.className = 'input-group-append';
+
+            const plus = createCellText('button', 'btn btn-light', '+');
+            plus.type = 'button';
+            plus.setAttribute('aria-label', 'Increase quantity');
+            plus.disabled = Number(item.quantity) >= Number(item.stock || 10);
+            plus.addEventListener('click', function () {
+                updateQuantity(item.cart_item_id, 'increase');
+            });
+            plusWrap.appendChild(plus);
+
+            quantityWrap.append(minusWrap, quantityInput, plusWrap);
+            quantityCell.appendChild(quantityWrap);
+
+            // Price
+            const priceCell = document.createElement('td');
+            const priceWrap = document.createElement('div');
+            priceWrap.className = 'price-wrap';
+
+            priceWrap.appendChild(createCellText(
+                'var',
+                'price',
+                money(item.subtotal)
+            ));
+
+            priceWrap.appendChild(createCellText(
+                'small',
+                'text-muted',
+                money(item.price) + ' each'
+            ));
+
+            priceCell.appendChild(priceWrap);
+
+            // Remove button
+            const actionCell = document.createElement('td');
+            actionCell.className = 'text-right';
+
+            const remove = createCellText('button', 'btn btn-danger', 'Remove');
+            remove.type = 'button';
+            remove.addEventListener('click', function () {
+                if (confirm('Are you sure you want to remove this item?')) {
+                    removeItem(item.cart_item_id);
+                }
+            });
+
+            actionCell.appendChild(remove);
+
+            row.append(productCell, quantityCell, priceCell, actionCell);
+            itemsBody.appendChild(row);
+        });
+
+        const summary = data.summary || {};
+
+        document.getElementById('api-cart-subtotal').textContent =
+            money(summary.subtotal);
+
+        document.getElementById('api-cart-tax').textContent =
+            money(summary.tax);
+
+        document.getElementById('api-cart-grand-total').textContent =
+            money(summary.grand_total);
+
+        loading.hidden = true;
+        errorBox.hidden = true;
+        emptyBox.hidden = true;
+        fallback.hidden = true;
+        apiContent.hidden = false;
+    }
+
+    async function loadCart() {
+        loading.hidden = false;
+        errorBox.hidden = true;
+         
+        try {
+            await window.API.ready;
+
+            const response = await window.API.fetch(root.dataset.apiUrl);
+
+            if (!response.ok) {
+                throw new Error('Cart API returned status ' + response.status);
+            }
+
+            const data = await response.json();
+            renderCart(data);
+        } catch (error) {
+            console.error('Unable to load cart API:', error);
+            showFallback();
+        }
+    }
+
+    async function updateQuantity(cartItemId, action) {
+        try {
+            const response = await window.API.fetch(
+                '/cart/api/update/' + cartItemId + '/',
+                {
+                    method: 'PATCH',
+                    body: JSON.stringify({ action: action })
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || data.error || 'Quantity update failed.');
+            }
+
+            await loadCart();
+        } catch (error) {
+            alert(error.message || 'Could not update quantity.');
+        }
+    }
+
+    async function removeItem(cartItemId) {
+        try {
+            const response = await window.API.fetch(
+                '/cart/api/remove/' + cartItemId + '/',
+                { method: 'DELETE' }
+            );
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.detail || data.error || 'Remove failed.');
+            }
+
+            await loadCart();
+        } catch (error) {
+            alert(error.message || 'Could not remove this item.');
+        }
+    }
+
+    await loadCart();
+
+        // Clear all cart items using Clear Cart API
+    async function clearCart() {
+        const clearButton = document.getElementById('api-clear-cart-btn');
+        const message = document.getElementById('api-clear-cart-message');
+
+        if (!confirm('Are you sure you want to clear your entire cart?')) {
+            return;
+        }
+
+        clearButton.disabled = true;
+        clearButton.textContent = 'Clearing...';
+
+        if (message) {
+            message.textContent = '';
+            message.className = 'small mb-2';
+        }
+
+        try {
+            const response = await window.API.fetch('/cart/api/clear/', {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail ||
+                    data.error ||
+                    data.message ||
+                    'Unable to clear cart.'
+                );
+            }
+
+            // Refresh the cart UI and totals from the API.
+            await loadCart();
+
+        } catch (error) {
+            console.error('Clear cart error:', error);
+
+            if (message) {
+                message.textContent =
+                    error.message || 'Could not clear the cart.';
+                message.classList.add('text-danger');
+            }
+
+            clearButton.disabled = false;
+            clearButton.innerHTML =
+                '<i class="fa fa-trash"></i> Clear Cart';
+        }
+    }
+
+    // Attach click handler
+    const clearCartButton = document.getElementById('api-clear-cart-btn');
+
+    if (clearCartButton) {
+        clearCartButton.addEventListener('click', clearCart);
+    }
+});
+</script>
 
 {% endblock %}

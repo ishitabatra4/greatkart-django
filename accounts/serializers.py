@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from accounts.models import Account,VendorProfile
+import re
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -41,18 +42,37 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         return value
 
-    def validate(self,data):
-        if data['password']!=data['confirm_password']:
-            raise serializers.ValidationError(
-                'Passwords do not match.'
+    
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise serializers.ValidationError({
+                'confirm_password': 'Passwords do not match.'
+            })
+
+        if data['registration_type'] == 'vendor':
+            gstin = (data.get('gstin') or '').strip().upper()
+
+            if not gstin:
+                raise serializers.ValidationError({
+                    'gstin': 'GSTIN is required for vendors.'
+                })
+
+            gstin_pattern = (
+                r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]'
+                r'[1-9A-Z]Z[0-9A-Z]$'
             )
 
-        if data['registration_type']=='vendor' and not data.get('gstin'):
-            raise serializers.ValidationError(
-                'GSTIN is required for vendors.'
-            )
+            if not re.fullmatch(gstin_pattern, gstin):
+                raise serializers.ValidationError({
+                    'gstin': (
+                        'Enter GSTIN in the correct 15-character format.'
+                    )
+                })
+
+            data['gstin'] = gstin
 
         return data
+
 
     def create(self,validated_data):
 

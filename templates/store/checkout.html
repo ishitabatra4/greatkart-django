@@ -1,277 +1,643 @@
+
 {% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
 
 <section class="section-content padding-y bg">
-<div class="container">
-
-<div class="row">
-
-<form action="{% url 'place_order' %}" method="POST" style="width:100%;">
-
-{% csrf_token %}
-
-<aside class="col-lg-6" style="float:left;">
-
-<div class="card">
-<div class="card-body">
-
-<h4 class="card-title mb-4">Billing Address</h4>
-
-<div class="form-row">
-
-<div class="col form-group">
-<label>First Name</label>
-<input type="text" name="first_name" class="form-control" required>
-</div>
-
-<div class="col form-group">
-<label>Last Name</label>
-<input type="text" name="last_name" class="form-control" required>
-</div>
-
-</div>
-
-<div class="form-row">
-
-<div class="col form-group">
-<label>Email</label>
-<input type="email" name="email" class="form-control" required>
-</div>
-
-<div class="col form-group">
-<label>Phone Number</label>
-<input type="text" name="phone" class="form-control" required>
-</div>
-
-</div>
-
-<div class="form-row">
-
-<div class="col form-group">
-<label>Address Line 1</label>
-<input type="text" name="address_line_1" class="form-control" required>
-</div>
-
-<div class="col form-group">
-<label>Address Line 2</label>
-<input type="text" name="address_line_2" class="form-control">
-</div>
-
-</div>
-
-<div class="form-row">
-
-<div class="col form-group">
-<label>City</label>
-<input type="text" name="city" class="form-control" required>
-</div>
-
-<div class="col form-group">
-<label>State</label>
-<input type="text" name="state" class="form-control" required>
-</div>
-
-<div class="col form-group">
-<label>Country</label>
-<input type="text" name="country" class="form-control" required>
-</div>
-
-</div>
-
-<div class="form-row">
-
-<div class="col form-group">
-<label>Order Note</label>
-<textarea name="order_note" rows="2" class="form-control"></textarea>
-</div>
-
-</div>
-
-</div>
-</div>
-
-</aside>
-
-
-<aside class="col-lg-6" style="float:left;">
-
-<div class="card">
-<div class="card-body">
-
-<table class="table table-borderless table-shopping-cart">
-
-<thead class="text-muted">
-
-<tr class="small text-uppercase">
-<th scope="col">Product</th>
-<th scope="col" width="120">Quantity</th>
-<th scope="col" width="120">Price</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-{% for cart_item in cart_items %}
-
-<tr>
-
-<td>
-
-<figure class="itemside align-items-center">
-
-<div class="aside">
-
-{% if cart_item.product.images %}
-
-<img src="{{ cart_item.product.images.url }}"
-     class="img-sm"
-     alt="{{ cart_item.product.product_name }}">
-
-{% else %}
-
-<div class="img-sm d-flex align-items-center justify-content-center bg-light text-muted">
-    No image
-</div>
-
-{% endif %}
-
-</div>
-
-
-<figcaption class="info">
-
-<a href="{{ cart_item.product.get_url }}"
-   class="title text-dark">
-
-{{ cart_item.product.product_name }}
-
-</a>
-
-<p class="text-muted small">
-
-{% for item in cart_item.variations.all %}
-
-{{ item.variation_category|capfirst }}:
-{{ item.variation_value|capfirst }}
-
-{% if not forloop.last %}
-|
-{% endif %}
-
-{% endfor %}
-
-</p>
-
-</figcaption>
-
-</figure>
-
-</td>
-
-
-<td>
-
-<label>{{ cart_item.quantity }}</label>
-
-</td>
-
-
-<td>
-
-<div class="price-wrap">
-
-<var class="price">
-₹{{ cart_item.sub_total|floatformat:2 }}
-</var>
-
-<small class="text-muted">
-₹{{ cart_item.product.price|floatformat:2 }} each
-</small>
-
-</div>
-
-</td>
-
-</tr>
-
-{% endfor %}
-
-</tbody>
-
-</table>
-
-
-<div class="border-top pt-3">
-
-<dl class="dlist-align">
-
-<dt>Total price:</dt>
-
-<dd class="text-right">
-₹{{ total|floatformat:2 }}
-</dd>
-
-</dl>
-
-
-<dl class="dlist-align">
-
-<dt>Tax:</dt>
-
-<dd class="text-right">
-₹{{ tax|floatformat:2 }}
-</dd>
-
-</dl>
-
-
-<dl class="dlist-align">
-
-<dt>Grand Total:</dt>
-
-<dd class="text-right text-dark">
-
-<strong>
-₹{{ grand_total|floatformat:2 }}
-</strong>
-
-</dd>
-
-</dl>
-
-</div>
-
-
-<button type="submit"
-        name="submit"
-        class="btn btn-primary btn-block">
-
-Place Order
-
-</button>
-
-
-<a href="{% url 'store' %}"
-   class="btn btn-light btn-block">
-
-Continue Shopping
-
-</a>
-
-
-</div>
-</div>
-
-</aside>
-
-</form>
-
-</div>
-
-</div>
+    <div class="container">
+
+        <div
+            id="checkout-message"
+            class="mb-3"
+            role="status"
+            aria-live="polite"
+        ></div>
+
+        <div class="row">
+
+            <form
+                action="{% url 'place_order' %}"
+                method="POST"
+                id="checkout-form"
+                style="width: 100%;"
+            >
+                {% csrf_token %}
+
+                <aside class="col-lg-6" style="float: left;">
+                    <div class="card">
+                        <div class="card-body">
+
+                            <h4 class="card-title mb-4">
+                                Billing Address
+                            </h4>
+
+                            <div class="form-row">
+                                <div class="col form-group">
+                                    <label for="first_name">First Name</label>
+                                    <input
+                                        type="text"
+                                        name="first_name"
+                                        id="first_name"
+                                        class="form-control"
+                                        value="{{ request.user.first_name }}"
+                                        required
+                                    >
+                                </div>
+
+                                <div class="col form-group">
+                                    <label for="last_name">Last Name</label>
+                                    <input
+                                        type="text"
+                                        name="last_name"
+                                        id="last_name"
+                                        class="form-control"
+                                        value="{{ request.user.last_name }}"
+                                        required
+                                    >
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="col form-group">
+                                    <label for="email">Email</label>
+                                    <input
+                                        type="email"
+                                        name="email"
+                                        id="email"
+                                        class="form-control"
+                                        value="{{ request.user.email }}"
+                                        required
+                                    >
+                                </div>
+
+                                <div class="col form-group">
+                                    <label for="phone">Phone Number</label>
+                                    <input
+                                        type="text"
+                                        name="phone"
+                                        id="phone"
+                                        class="form-control"
+                                        value="{{ request.user.phone_number|default:'' }}"
+                                        required
+                                    >
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="col form-group">
+                                    <label for="address_line_1">
+                                        Address Line 1
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="address_line_1"
+                                        id="address_line_1"
+                                        class="form-control"
+                                        autocomplete="address-line1"
+                                        value="{{ user_profile.address_line_1|default:'' }}"
+                                        required
+                                    >
+                                </div>
+
+                                <div class="col form-group">
+                                    <label for="address_line_2">
+                                        Address Line 2
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="address_line_2"
+                                        id="address_line_2"
+                                        class="form-control"
+                                        autocomplete="address-line2"
+                                        value="{{ user_profile.address_line_2|default:'' }}"
+                                    >
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="col form-group">
+                                    <label for="city">City</label>
+                                    <input
+                                        type="text"
+                                        name="city"
+                                        id="city"
+                                        class="form-control"
+                                        autocomplete="address-level2"
+                                        value="{{ user_profile.city|default:'' }}"
+                                        required
+                                    >
+                                </div>
+
+                                <div class="col form-group">
+                                    <label for="state">State</label>
+                                    <input
+                                        type="text"
+                                        name="state"
+                                        id="state"
+                                        class="form-control"
+                                        autocomplete="address-level1"
+                                        value="{{ user_profile.state|default:'' }}"
+                                        required
+                                    >
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="col form-group">
+                                    <label for="pincode">PIN Code</label>
+                                    <input
+                                        type="text"
+                                        name="pincode"
+                                        id="pincode"
+                                        class="form-control"
+                                        maxlength="6"
+                                        pattern="[0-9]{6}"
+                                        inputmode="numeric"
+                                        autocomplete="postal-code"
+                                        placeholder="6-digit PIN"
+                                        value="{{ user_profile.pincode|default:'' }}"
+                                    >
+                                </div>
+
+                                <div class="col form-group">
+                                    <label for="country">Country</label>
+                                    <input
+                                        type="text"
+                                        name="country"
+                                        id="country"
+                                        class="form-control"
+                                        autocomplete="country-name"
+                                        value="{{ user_profile.country|default:'' }}"
+                                        required
+                                    >
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="col form-group">
+                                    <label for="order_note">Order Note</label>
+                                    <textarea
+                                        name="order_note"
+                                        id="order_note"
+                                        rows="2"
+                                        class="form-control"
+                                    ></textarea>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </aside>
+
+                <aside class="col-lg-6" style="float: left;">
+                    <div class="card">
+                        <div class="card-body">
+
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="card-title mb-0">
+                                    Order Summary
+                                </h4>
+                                <span
+                                    id="checkout-loading"
+                                    class="text-muted small"
+                                >
+                                    Checking totals...
+                                </span>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-borderless table-shopping-cart">
+                                    <thead class="text-muted">
+                                        <tr class="small text-uppercase">
+                                            <th scope="col">Product</th>
+                                            <th scope="col" width="80">Quantity</th>
+                                            <th scope="col" width="120">Price</th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody id="checkout-items">
+                                        {% for cart_item in cart_items %}
+                                            <tr>
+                                                <td>
+                                                    <figure class="itemside align-items-center">
+                                                        <div class="aside">
+                                                            {% if cart_item.product.images %}
+                                                                <img
+                                                                    src="{{ cart_item.product.images.url }}"
+                                                                    class="img-sm"
+                                                                    alt="{{ cart_item.product.product_name }}"
+                                                                >
+                                                            {% else %}
+                                                                <div class="img-sm d-flex align-items-center justify-content-center bg-light text-muted">
+                                                                    No image
+                                                                </div>
+                                                            {% endif %}
+                                                        </div>
+
+                                                        <figcaption class="info">
+                                                            <a
+                                                                href="{{ cart_item.product.get_url }}"
+                                                                class="title text-dark"
+                                                            >
+                                                                {{ cart_item.product.product_name }}
+                                                            </a>
+
+                                                            <p class="text-muted small">
+                                                                {% for item in cart_item.variations.all %}
+                                                                    {{ item.variation_category|capfirst }}:
+                                                                    {{ item.variation_value|capfirst }}{% if not forloop.last %} | {% endif %}
+                                                                {% endfor %}
+                                                            </p>
+                                                        </figcaption>
+                                                    </figure>
+                                                </td>
+
+                                                <td>
+                                                    <label>{{ cart_item.quantity }}</label>
+                                                </td>
+
+                                                <td>
+                                                    <div class="price-wrap">
+                                                        <var class="price">
+                                                            ₹{{ cart_item.sub_total|floatformat:2 }}
+                                                        </var>
+                                                        <small class="text-muted">
+                                                            ₹{{ cart_item.product.price|floatformat:2 }} each
+                                                        </small>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {% empty %}
+                                            <tr>
+                                                <td colspan="3" class="text-center text-muted">
+                                                    Your cart is empty.
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="border-top pt-3">
+                                <dl class="dlist-align">
+                                    <dt>Total price:</dt>
+                                    <dd
+                                        class="text-right"
+                                        id="checkout-subtotal"
+                                    >
+                                        ₹{{ total|floatformat:2 }}
+                                    </dd>
+                                </dl>
+
+                                <dl class="dlist-align">
+                                    <dt>Tax:</dt>
+                                    <dd
+                                        class="text-right"
+                                        id="checkout-tax"
+                                    >
+                                        ₹{{ tax|floatformat:2 }}
+                                    </dd>
+                                </dl>
+
+                                <dl class="dlist-align">
+                                    <dt>Grand Total:</dt>
+                                    <dd class="text-right text-dark">
+                                        <strong id="checkout-grand-total">
+                                            ₹{{ grand_total|floatformat:2 }}
+                                        </strong>
+                                    </dd>
+                                </dl>
+                            </div>
+
+                            <button
+                                type="submit"
+                                name="submit"
+                                id="place-order-button"
+                                class="btn btn-primary btn-block"
+                            >
+                                Place Order
+                            </button>
+
+                            <a
+                                href="{% url 'store' %}"
+                                class="btn btn-light btn-block"
+                            >
+                                Continue Shopping
+                            </a>
+
+                        </div>
+                    </div>
+                </aside>
+
+            </form>
+        </div>
+    </div>
 </section>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const message = document.getElementById("checkout-message");
+    const loading = document.getElementById("checkout-loading");
+    const form = document.getElementById("checkout-form");
+    const button = document.getElementById("place-order-button");
+
+    const subtotalElement = document.getElementById("checkout-subtotal");
+    const taxElement = document.getElementById("checkout-tax");
+    const grandTotalElement = document.getElementById("checkout-grand-total");
+
+    if (!form || !button) {
+        console.error("Checkout form/button not found.");
+        return;
+    }
+
+    let isSubmitting = false;
+    let lastLookedUpPincode = "";
+
+    function showMessage(text, type) {
+        if (!message) {
+            alert(text);
+            return;
+        }
+
+        message.className = "mb-3 alert alert-" + type;
+        message.textContent = text;
+        message.style.display = "block";
+    }
+
+    function formatMoney(value) {
+        const amount = Number(value);
+        return "₹" + (Number.isFinite(amount) ? amount : 0).toFixed(2);
+    }
+
+    async function apiReady() {
+        if (!window.API || typeof window.API.fetch !== "function") {
+            throw new Error("API helper load nahi hua. api.js check karo.");
+        }
+
+        if (window.API.ready) {
+            await window.API.ready;
+        }
+    }
+
+    // Load the saved customer address.
+    async function loadSavedAddress() {
+        try {
+            await apiReady();
+
+            const response = await window.API.fetch(
+                "/accounts/api/profile/"
+            );
+
+            if (!response.ok) {
+                throw new Error("Could not load saved profile.");
+            }
+
+            const data = await response.json();
+            const profile = data.profile || {};
+
+            const fields = {
+                address_line_1: profile.address_line_1,
+                address_line_2: profile.address_line_2,
+                city: profile.city,
+                state: profile.state,
+                pincode: profile.pincode,
+                country: profile.country
+            };
+
+            Object.entries(fields).forEach(function ([name, value]) {
+                const input = form.elements.namedItem(name);
+
+                if (input && value && !input.value.trim()) {
+                    input.value = value;
+                }
+            });
+        } catch (error) {
+            console.error("Saved address load error:", error);
+        }
+    }
+
+    // Look up Indian PIN codes.
+    const pincodeInput = form.elements.namedItem("pincode");
+
+    if (pincodeInput) {
+        pincodeInput.addEventListener("input", async function () {
+            const pincode = this.value.trim();
+
+            if (!/^\d{6}$/.test(pincode)) {
+                lastLookedUpPincode = "";
+                return;
+            }
+
+            if (pincode === lastLookedUpPincode) {
+                return;
+            }
+
+            lastLookedUpPincode = pincode;
+
+            try {
+                const response = await fetch(
+                    "https://api.postalpincode.in/pincode/" +
+                    encodeURIComponent(pincode)
+                );
+
+                if (!response.ok) {
+                    throw new Error("PIN lookup failed.");
+                }
+
+                const results = await response.json();
+                const record = results[0];
+
+                if (
+                    !record ||
+                    record.Status !== "Success" ||
+                    !record.PostOffice ||
+                    !record.PostOffice.length
+                ) {
+                    lastLookedUpPincode = "";
+                    showMessage(
+                        "PIN Code nahi mila. Please 6 digits check karo.",
+                        "warning"
+                    );
+                    return;
+                }
+
+                const office = record.PostOffice[0];
+
+                form.elements.namedItem("city").value =
+                    office.District || office.Block || "";
+
+                form.elements.namedItem("state").value =
+                    office.State || "";
+
+                form.elements.namedItem("country").value =
+                    office.Country || "India";
+
+                showMessage(
+                    "City, State aur Country fill ho gaye. Please verify them.",
+                    "success"
+                );
+            } catch (error) {
+                console.error("PIN lookup error:", error);
+                lastLookedUpPincode = "";
+
+                showMessage(
+                    "PIN lookup nahi ho paya. Address manually enter kar sakte ho.",
+                    "warning"
+                );
+            }
+        });
+    }
+
+    // Load checkout totals from the API.
+    async function loadCheckoutTotals() {
+        try {
+            await apiReady();
+
+            const response = await window.API.fetch("/cart/api/checkout/");
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message ||
+                    data.detail ||
+                    "Checkout totals load nahi hue."
+                );
+            }
+
+            const subtotal = data.subtotal ?? data.total;
+            const tax = data.tax;
+            const grandTotal = data.grand_total ?? data.grandTotal;
+
+            if (subtotalElement && subtotal !== undefined) {
+                subtotalElement.textContent = formatMoney(subtotal);
+            }
+
+            if (taxElement && tax !== undefined) {
+                taxElement.textContent = formatMoney(tax);
+            }
+
+            if (grandTotalElement && grandTotal !== undefined) {
+                grandTotalElement.textContent = formatMoney(grandTotal);
+            }
+
+            if (loading) {
+                loading.textContent = "Totals updated";
+                loading.className = "text-success small";
+            }
+        } catch (error) {
+            console.error("Checkout totals error:", error);
+
+            if (loading) {
+                loading.textContent = "Using server-rendered totals";
+                loading.className = "text-muted small";
+            }
+        }
+    }
+
+    async function createOrder(event) {
+        if (event) {
+            event.preventDefault();
+        }
+
+        if (isSubmitting) {
+            return;
+        }
+
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
+        isSubmitting = true;
+
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = "Creating Order...";
+
+        try {
+            await apiReady();
+
+            const formData = new FormData(form);
+
+            const payload = {
+                first_name: (formData.get("first_name") || "").trim(),
+                last_name: (formData.get("last_name") || "").trim(),
+                email: (formData.get("email") || "").trim(),
+                phone: (formData.get("phone") || "").trim(),
+                address_line_1: (formData.get("address_line_1") || "").trim(),
+                address_line_2: (formData.get("address_line_2") || "").trim(),
+                city: (formData.get("city") || "").trim(),
+                state: (formData.get("state") || "").trim(),
+                country: (formData.get("country") || "").trim(),
+                pincode: (formData.get("pincode") || "").trim(),
+                order_note: (formData.get("order_note") || "").trim()
+            };
+
+            const response = await window.API.fetch(
+                "/orders/api/place-order/",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message ||
+                    data.detail ||
+                    data.error ||
+                    "Order create nahi hua. HTTP " + response.status
+                );
+            }
+
+            const orderNumber = data.order && data.order.order_number;
+
+            if (!orderNumber) {
+                throw new Error(
+                    "API response mein order number nahi mila."
+                );
+            }
+
+            sessionStorage.setItem(
+                "greatkart_order_number",
+                orderNumber
+            );
+
+            showMessage(
+                "Order created successfully: " + orderNumber,
+                "success"
+            );
+
+            window.location.href =
+                "{% url 'payments' %}" +
+                "?order_number=" + encodeURIComponent(orderNumber);
+
+        } catch (error) {
+            console.error("Place Order error:", error);
+
+            showMessage(
+                error.message || "Something went wrong.",
+                "danger"
+            );
+
+            isSubmitting = false;
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+
+    form.addEventListener("submit", createOrder);
+
+    // Do not add a second click handler; submit handles button clicks.
+    loadSavedAddress();
+    loadCheckoutTotals();
+});
+</script>
 
 {% endblock %}

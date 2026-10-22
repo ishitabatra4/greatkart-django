@@ -1,6 +1,11 @@
 from django.urls import path
 from . import views
 from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView,TokenBlacklistView
+from .views import (
+    CookieTokenObtainPairView,
+    CookieTokenRefreshView,
+    CookieTokenLogoutView,
+)
 
 
 urlpatterns=[
@@ -23,16 +28,17 @@ urlpatterns=[
     path('reset-password/',views.reset_password,name='reset_password'),
 
     path('vendor/orders/',views.vendor_orders,name='vendor_orders'),
+    path('vendor/invoices/<str:invoice_number>/',views.vendor_invoice_detail,name='vendor_invoice_detail'),
 
 
     # JWT
 
-    path('api/token/',TokenObtainPairView.as_view(),name='token_obtain_pair'),
-    path('api/token/refresh/',TokenRefreshView.as_view(),name='token_refresh'),
+    path('api/token/',CookieTokenObtainPairView.as_view(),name='token_obtain_pair'),
+    path('api/token/refresh/',CookieTokenRefreshView.as_view(),name='token_refresh'),
     path('api/me/',views.api_me,name='api_me'),
     path('api/profile/',views.api_profile,name='api_profile'),
     path('api/register/',views.RegisterAPIView.as_view(),name='api_register'),
-    path('api/logout/',TokenBlacklistView.as_view(),name='api_logout'),
+    path('api/logout/',CookieTokenLogoutView.as_view(),name='api_logout'),
     path('api/customer-test/',views.api_customer_test,name='api_customer_test'),
     path('api/vendor-test/',views.api_vendor_test,name='api_vendor_test'),
     path('api/vendor/profile/',views.api_vendor_profile,name='api_vendor_profile'),
@@ -43,5 +49,14 @@ urlpatterns=[
     path('api/orders/<str:order_number>/',views.api_order_detail,name='api_order_detail'),
     path('api/vendor/orders/',views.api_vendor_orders,name='api_vendor_orders'),
     path('api/vendor/orders/<str:order_number>/',views.api_vendor_order_detail,name='api_vendor_order_detail'),
-
+    path('api/vendor/orders/<str:order_number>/status/',views.api_vendor_update_order_status,name='api_vendor_update_order_status'),
+    path('api/orders/<str:order_number>/cancel/',views.api_cancel_order,name='api_cancel_order'),
+    path('api/admin/users/',views.api_admin_users,name='api_admin_users'),
+    path('api/admin/users/<int:user_id>/',views.api_admin_user_detail,name='api_admin_user_detail'),
+    path('api/admin/products/',views.api_admin_products,name='api_admin_products'),
+    path('api/admin/vendors/',views.api_admin_vendors,name='api_admin_vendors'),
+    path('api/admin/vendors/<int:vendor_id>/',views.api_admin_vendor_detail,name='api_admin_vendor_detail'),
+    path('api/admin/vendors/<int:vendor_id>/approval/',views.api_admin_vendor_approval,name='api_admin_vendor_approval'),
+    path('api/admin/dashboard/',views.api_admin_dashboard,name='api_admin_dashboard'),
+    path('api/csrf/', views.api_csrf, name='api_csrf'),
 ]

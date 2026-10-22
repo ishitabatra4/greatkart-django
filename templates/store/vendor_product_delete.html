@@ -1,36 +1,73 @@
 {% extends 'base.html' %}
-
 {% block content %}
 
 <section class="section-content padding-y">
-
 <div class="card mx-auto" style="max-width:500px;margin-top:50px;">
 <div class="card-body text-center">
 
-<h4>Delete Product?</h4>
+    <h4>Delete Product?</h4>
 
-<p>
-Are you sure you want to delete
-<strong>{{ product.product_name }}</strong>?
-</p>
+    <p>
+        Are you sure you want to delete
+        <strong>{{ product.product_name }}</strong>?
+    </p>
 
-<form method="POST">
+    <div id="delete-error" class="alert alert-danger" hidden></div>
 
-{% csrf_token %}
+    <button id="confirm-delete" type="button" class="btn btn-danger">
+        Yes, Delete
+    </button>
 
-<button type="submit" class="btn btn-danger">
-Yes, Delete
-</button>
-
-<a href="{% url 'vendor_products' %}" class="btn btn-light">
-Cancel
-</a>
-
-</form>
+    <a href="{% url 'vendor_products' %}" class="btn btn-light">
+        Cancel
+    </a>
 
 </div>
 </div>
-
 </section>
+
+<script>
+(function () {
+    function start() {
+        const button = document.getElementById('confirm-delete');
+        const errorBox = document.getElementById('delete-error');
+
+        button.addEventListener('click', async function () {
+            button.disabled = true;
+            errorBox.hidden = true;
+
+            try {
+                const response = await API.fetch(
+                    '/store/api/vendor/products/{{ product.id }}/delete/',
+                    { method: 'DELETE' }
+                );
+
+                const data = await response.json().catch(() => ({}));
+
+                if (!response.ok) {
+                    throw new Error(
+                        data.detail || data.error ||
+                        `Delete failed: ${response.status}`
+                    );
+                }
+
+                window.location.href = "{% url 'vendor_products' %}";
+
+            } catch (error) {
+                console.error('Delete product API error:', error);
+                errorBox.textContent = error.message || 'Unable to delete product.';
+                errorBox.hidden = false;
+                button.disabled = false;
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
+    }
+})();
+</script>
 
 {% endblock %}

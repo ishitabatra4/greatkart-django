@@ -3,338 +3,1108 @@
 {% block content %}
 
 <section class="section-content padding-y">
-
-<div class="container">
-
-<div class="row">
-
-<!-- Sidebar -->
-
-{% include 'includes/dashboard_sidebar.html' %}
-
-
-<!-- Vendor Dashboard -->
-
-<main class="col-md-9">
-
-<h3 class="mb-4">
-Vendor Dashboard
-</h3>
-
-
-<div class="mb-3">
-
-<a
-    href="{% url 'vendor_products' %}"
-    class="btn btn-primary"
->
-Manage My Products
-</a>
-
-<a
-    href="{% url 'vendor_product_add' %}"
-    class="btn btn-success"
->
-+ Add Product
-</a>
-
-<a
-    href="{% url 'request_category' %}"
-    class="btn btn-outline-primary"
->
-Request New Category
-</a>
-
-</div>
-
-
-<!-- Dashboard Statistics -->
-
-<div class="row">
-
-<div class="col-md-4">
-
-<div class="card">
-
-<div class="card-body">
-
-<h6>
-Today's Orders
-</h6>
-
-<h3>
-{{ orders_count }}
-</h3>
-
-</div>
-
-</div>
-
-</div>
-
-
-<div class="col-md-4">
-
-<div class="card">
-
-<div class="card-body">
-
-<h6>
-Today's Sales
-</h6>
-
-<h3>
-₹{{ today_sales }}
-</h3>
-
-</div>
-
-</div>
-
-</div>
-
-
-<div class="col-md-4">
-
-<div class="card">
-
-<div class="card-body">
-
-<h6>
-Total Products
-</h6>
-
-<h3>
-{{ products.count }}
-</h3>
-
-</div>
-
-</div>
-
-</div>
-
-</div>
-
-
-<!-- My Products -->
-
-<div class="card mt-4">
-
-<div class="card-body">
-
-<h5>
-My Products
-</h5>
-
-<div class="table-responsive">
-
-<table class="table table-bordered">
-
-<thead>
-
-<tr>
-
-<th>Product</th>
-
-<th>Price</th>
-
-<th>Stock</th>
-
-<th>Status</th>
-
-<th>Actions</th>
-
-</tr>
-
-</thead>
-
-
-<tbody>
-
-{% for product in products %}
-
-<tr>
-
-<td>
-{{ product.product_name }}
-</td>
-
-
-<td>
-₹{{ product.price }}
-</td>
-
-
-<td>
-{{ product.stock }}
-</td>
-
-
-<td>
-
-{% if product.is_available and product.stock > 0 %}
-
-<span class="text-success">
-Available
-</span>
-
-{% else %}
-
-<span class="text-danger">
-Out of Stock
-</span>
-
-{% endif %}
-
-</td>
-
-
-<td>
-
-<a
-    href="{% url 'vendor_product_edit' product.id %}"
-    class="btn btn-sm btn-primary"
->
-Edit
-</a>
-
-
-<a
-    href="{% url 'vendor_product_delete' product.id %}"
-    class="btn btn-sm btn-danger"
->
-Delete
-</a>
-
-</td>
-
-</tr>
-
-
-{% empty %}
-
-<tr>
-
-<td
-    colspan="5"
-    class="text-center"
->
-No products added yet.
-</td>
-
-</tr>
-
-{% endfor %}
-
-</tbody>
-
-</table>
-
-</div>
-
-</div>
-
-</div>
-
-
-<!-- My Orders -->
-
-<div class="card mt-4">
-
-<div class="card-body">
-
-<h5>
-My Orders
-</h5>
-
-<div class="table-responsive">
-
-<table class="table table-bordered">
-
-<thead>
-
-<tr>
-
-<th>Order</th>
-
-<th>Product</th>
-
-<th>Quantity</th>
-
-<th>Price</th>
-
-<th>Date</th>
-
-</tr>
-
-</thead>
-
-
-<tbody>
-
-{% for item in orders %}
-
-<tr>
-
-<td>
-#{{ item.order.order_number }}
-</td>
-
-
-<td>
-{{ item.product.product_name }}
-</td>
-
-
-<td>
-{{ item.quantity }}
-</td>
-
-
-<td>
-₹{{ item.product_price }}
-</td>
-
-
-<td>
-{{ item.created_at|date:"d M Y" }}
-</td>
-
-</tr>
-
-
-{% empty %}
-
-<tr>
-
-<td
-    colspan="5"
-    class="text-center"
->
-No orders yet.
-</td>
-
-</tr>
-
-{% endfor %}
-
-</tbody>
-
-</table>
-
-</div>
-
-</div>
-
-</div>
-
-</main>
-
-</div>
-
-</div>
-
+    <div class="container">
+        <div class="row">
+
+            {% include 'includes/dashboard_sidebar.html' %}
+
+            <main class="col-md-9">
+
+                <h3 class="mb-4">Vendor Dashboard</h3>
+
+                <div class="mb-3">
+                    <a href="{% url 'vendor_products' %}" class="btn btn-primary">
+                        Manage My Products
+                    </a>
+
+                    <a href="{% url 'vendor_product_add' %}" class="btn btn-success">
+                        + Add Product
+                    </a>
+
+                    <a href="{% url 'request_category' %}" class="btn btn-outline-primary">
+                        Request New Category
+                    </a>
+                </div>
+
+                <div id="dashboard-error" class="alert alert-danger" hidden></div>
+
+                <!-- Dashboard Statistics -->
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6>Today's Orders</h6>
+                                <h3 id="vendor-today-orders">—</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6>Today's Sales</h6>
+                                <h3 id="vendor-today-sales">—</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6>Total Products</h6>
+                                <h3 id="vendor-total-products">—</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My Products -->
+                <div class="card mt-4">
+                    <div class="card-body">
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0">My Products</h5>
+                            <a href="{% url 'vendor_products' %}">View all</a>
+                        </div>
+
+                        <p id="products-loading" class="text-muted">
+                            Loading products...
+                        </p>
+
+                        <div id="products-error" class="alert alert-warning" hidden></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Price</th>
+                                        <th>Stock</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vendor-products-list"></tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- My Orders -->
+                <div class="card mt-4">
+                    <div class="card-body">
+
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0">My Orders</h5>
+                            <a href="{% url 'vendor_orders' %}">View all</a>
+                        </div>
+
+                        <p id="orders-loading" class="text-muted">
+                            Loading orders...
+                        </p>
+
+                        <div id="orders-error" class="alert alert-warning" hidden></div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Order</th>
+                                        <th>Customer</th>
+                                        <th>Items</th>
+                                        <th>Your Sales</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vendor-orders-list"></tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
 </section>
+
+
+<!-- Order Details Modal -->
+<div class="modal fade"
+     id="vendorOrderModal"
+     tabindex="-1"
+     role="dialog"
+     aria-labelledby="vendorOrderModalTitle"
+     aria-hidden="true">
+
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title" id="vendorOrderModalTitle">
+                        Order Details
+                    </h5>
+                    <small class="text-muted" id="modal-order-date"></small>
+                </div>
+
+                <button type="button"
+                        class="close"
+                        data-dismiss="modal"
+                        aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+
+            <div class="modal-body" id="vendor-order-modal-body">
+                Loading order details...
+            </div>
+
+            <div class="modal-footer">
+                <button type="button"
+                        class="btn btn-secondary"
+                        data-dismiss="modal">
+                    Close
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<style>
+    #vendor-orders-list .order-number-link {
+        color: #007bff;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    #vendor-orders-list .order-number-link:hover {
+        text-decoration: underline;
+    }
+
+    .vendor-order-section {
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .vendor-order-section h6 {
+        font-weight: 700;
+        margin-bottom: 12px;
+    }
+
+    .vendor-status-badge {
+        display: inline-block;
+        padding: 5px 9px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        background: #e9ecef;
+        color: #343a40;
+    }
+
+    .vendor-status-new {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .vendor-status-accepted {
+        background: #cce5ff;
+        color: #004085;
+    }
+
+    .vendor-status-completed {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .vendor-status-cancelled {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    #vendor-order-status {
+        max-width: 320px;
+    }
+
+    @media (max-width: 767px) {
+        .vendor-order-section {
+            padding: 12px;
+        }
+    }
+</style>
+
+
+<script>
+(function () {
+    'use strict';
+
+    const $ = id => document.getElementById(id);
+
+    const PRODUCTS_URL = '/store/api/vendor/products/';
+    const ORDERS_URL = '/accounts/api/vendor/orders/';
+
+    // ---------------- HELPERS ----------------
+
+    function money(value) {
+        const number = Number(value);
+
+        if (!Number.isFinite(number)) return '—';
+
+        return '₹' + number.toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function formatDate(value) {
+        if (!value) return '—';
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) return '—';
+
+        return date.toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    }
+
+    function normalizeList(data, keys) {
+        if (Array.isArray(data)) return data;
+
+        for (const key of keys) {
+            if (Array.isArray(data?.[key])) return data[key];
+        }
+
+        return [];
+    }
+
+    async function apiGet(url) {
+        if (!window.API || typeof window.API.fetch !== 'function') {
+            throw new Error('API helper not found. Check api.js in base.html.');
+        }
+
+        await window.API.ready;
+
+        const response = await window.API.fetch(url);
+        const data = await response.json().catch(() => ({}));
+
+        console.log(`[Vendor API] ${url}: ${response.status}`);
+
+        if (!response.ok) {
+            throw new Error(
+                data.detail ||
+                data.error ||
+                data.message ||
+                `Request failed: ${response.status}`
+            );
+        }
+
+        return data;
+    }
+
+    async function apiPatch(url, payload) {
+        await window.API.ready;
+
+        const response = await window.API.fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        console.log(`[Vendor API] PATCH ${url}: ${response.status}`);
+
+        if (!response.ok) {
+            throw new Error(
+                data.detail ||
+                data.error ||
+                data.message ||
+                `Request failed: ${response.status}`
+            );
+        }
+
+        return data;
+    }
+
+    function addCell(row, value) {
+        const cell = row.insertCell();
+
+        cell.textContent =
+            value === null || value === undefined || value === ''
+                ? '—'
+                : String(value);
+
+        return cell;
+    }
+
+    function showTableMessage(body, columns, message) {
+        body.replaceChildren();
+
+        const row = body.insertRow();
+        const cell = row.insertCell();
+
+        cell.colSpan = columns;
+        cell.className = 'text-center text-muted';
+        cell.textContent = message;
+    }
+
+    function getCustomerName(customer) {
+        const fullName = [
+            customer.first_name,
+            customer.last_name
+        ].filter(Boolean).join(' ').trim();
+
+        return customer.full_name ||
+            customer.name ||
+            fullName ||
+            customer.username ||
+            customer.email ||
+            '—';
+    }
+
+    function statusClass(status) {
+        const value = String(status || '').toLowerCase();
+
+        if (value === 'new') return 'vendor-status-new';
+        if (value === 'accepted') return 'vendor-status-accepted';
+        if (value === 'completed') return 'vendor-status-completed';
+        if (value === 'cancelled') return 'vendor-status-cancelled';
+
+        return '';
+    }
+
+    function addStatus(row, status) {
+        const cell = row.insertCell();
+        const badge = document.createElement('span');
+
+        badge.className =
+            'vendor-status-badge ' + statusClass(status);
+
+        badge.textContent = status || 'Unknown';
+        cell.appendChild(badge);
+    }
+
+    function vendorSubtotal(order) {
+        if (
+            order.vendor_subtotal !== undefined &&
+            order.vendor_subtotal !== null
+        ) {
+            return Number(order.vendor_subtotal) || 0;
+        }
+
+        const items = Array.isArray(order.items) ? order.items : [];
+
+        return items.reduce((total, item) => {
+            const subtotal = item.subtotal != null
+                ? Number(item.subtotal)
+                : Number(
+                    item.product_price ??
+                    item.product?.price ??
+                    0
+                ) * Number(item.quantity || 0);
+
+            return total + (Number.isFinite(subtotal) ? subtotal : 0);
+        }, 0);
+    }
+
+    function isToday(value) {
+        if (!value) return false;
+
+        const date = new Date(value);
+        const today = new Date();
+
+        return !Number.isNaN(date.getTime()) &&
+            date.getFullYear() === today.getFullYear() &&
+            date.getMonth() === today.getMonth() &&
+            date.getDate() === today.getDate();
+    }
+
+    // ---------------- PRODUCTS ----------------
+
+    async function loadVendorProducts() {
+        const body = $('vendor-products-list');
+
+        $('products-loading').hidden = false;
+        $('products-error').hidden = true;
+
+        showTableMessage(body, 5, 'Loading products...');
+
+        try {
+            const data = await apiGet(PRODUCTS_URL);
+
+            const products = normalizeList(
+                data,
+                ['products', 'results', 'data']
+            );
+
+            $('products-loading').hidden = true;
+
+            $('vendor-total-products').textContent =
+                data.count !== undefined ? data.count : products.length;
+
+            if (!products.length) {
+                showTableMessage(body, 5, 'No products added yet.');
+                return;
+            }
+
+            body.replaceChildren();
+
+            const editPrefix = "{% url 'vendor_product_edit' 0 %}";
+            const deletePrefix = "{% url 'vendor_product_delete' 0 %}";
+
+            products.slice(0, 5).forEach(product => {
+                const row = body.insertRow();
+
+                addCell(
+                    row,
+                    product.product_name ||
+                    product.name ||
+                    product.title ||
+                    'Unnamed product'
+                );
+
+                addCell(row, money(product.price));
+                addCell(row, product.stock ?? 0);
+
+                const available =
+                    product.is_available === true &&
+                    Number(product.stock) > 0;
+
+                const statusCell = addCell(
+                    row,
+                    available ? 'Available' : 'Out of Stock'
+                );
+
+                statusCell.className =
+                    available ? 'text-success' : 'text-danger';
+
+                const actions = row.insertCell();
+
+                if (product.id === undefined || product.id === null) {
+                    actions.textContent = '—';
+                    return;
+                }
+
+                const edit = document.createElement('a');
+
+                edit.href = editPrefix.replace(
+                    /0\/?$/,
+                    String(product.id) + '/'
+                );
+
+                edit.className = 'btn btn-sm btn-primary mr-1';
+                edit.textContent = 'Edit';
+
+                const remove = document.createElement('a');
+
+                remove.href = deletePrefix.replace(
+                    /0\/?$/,
+                    String(product.id) + '/'
+                );
+
+                remove.className = 'btn btn-sm btn-danger';
+                remove.textContent = 'Delete';
+
+                actions.append(edit, remove);
+            });
+
+        } catch (error) {
+            console.error('Vendor products error:', error);
+
+            $('products-loading').hidden = true;
+            $('products-error').textContent = error.message;
+            $('products-error').hidden = false;
+
+            showTableMessage(body, 5, 'Products could not be loaded.');
+            throw error;
+        }
+    }
+
+    // ---------------- ORDERS ----------------
+
+    async function loadVendorOrders() {
+        const body = $('vendor-orders-list');
+
+        $('orders-loading').hidden = false;
+        $('orders-error').hidden = true;
+
+        showTableMessage(body, 6, 'Loading orders...');
+
+        try {
+            const data = await apiGet(ORDERS_URL);
+
+            const orders = normalizeList(
+                data,
+                ['orders', 'results', 'data']
+            );
+
+            $('orders-loading').hidden = true;
+
+            const todayOrders = orders.filter(order =>
+                isToday(order.created_at) &&
+                String(order.status || '').toLowerCase() !== 'cancelled'
+            );
+
+            $('vendor-today-orders').textContent = todayOrders.length;
+
+            $('vendor-today-sales').textContent = money(
+                todayOrders.reduce(
+                    (sum, order) => sum + vendorSubtotal(order),
+                    0
+                )
+            );
+
+            if (!orders.length) {
+                showTableMessage(body, 6, 'No orders yet.');
+                return;
+            }
+
+            body.replaceChildren();
+
+            orders.slice(0, 5).forEach(order => {
+                const row = body.insertRow();
+                const customer = order.customer || {};
+                const items = Array.isArray(order.items) ? order.items : [];
+
+                // Clickable Order ID
+                const orderCell = row.insertCell();
+                const orderLink = document.createElement('a');
+
+                orderLink.href = '#';
+                orderLink.className = 'order-number-link';
+                orderLink.textContent = '#' + (order.order_number || '—');
+
+                orderLink.addEventListener('click', event => {
+                    event.preventDefault();
+
+                    if (order.order_number) {
+                        openOrderDetails(order.order_number);
+                    }
+                });
+
+                orderCell.appendChild(orderLink);
+
+                addCell(row, getCustomerName(customer));
+
+                const quantity = items.reduce(
+                    (sum, item) => sum + (Number(item.quantity) || 0),
+                    0
+                );
+
+                addCell(row, quantity);
+                addCell(row, money(vendorSubtotal(order)));
+                addStatus(row, order.status);
+                addCell(row, formatDate(order.created_at));
+            });
+
+        } catch (error) {
+            console.error('Vendor orders error:', error);
+
+            $('orders-loading').hidden = true;
+            $('orders-error').textContent = error.message;
+            $('orders-error').hidden = false;
+
+            showTableMessage(body, 6, 'Orders could not be loaded.');
+            throw error;
+        }
+    }
+
+    // ---------------- MODAL ----------------
+
+    function showModal() {
+        const modal = $('vendorOrderModal');
+
+        // Bootstrap 4
+        if (
+            window.jQuery &&
+            window.jQuery.fn &&
+            typeof window.jQuery.fn.modal === 'function'
+        ) {
+            window.jQuery(modal).modal('show');
+            return;
+        }
+
+        // Bootstrap 5, including older releases
+        if (window.bootstrap && window.bootstrap.Modal) {
+            let instance;
+
+            if (
+                typeof window.bootstrap.Modal.getOrCreateInstance === 'function'
+            ) {
+                instance =
+                    window.bootstrap.Modal.getOrCreateInstance(modal);
+            } else if (
+                typeof window.bootstrap.Modal.getInstance === 'function'
+            ) {
+                instance = window.bootstrap.Modal.getInstance(modal);
+
+                if (!instance) {
+                    instance = new window.bootstrap.Modal(modal);
+                }
+            } else {
+                instance = new window.bootstrap.Modal(modal);
+            }
+
+            instance.show();
+            return;
+        }
+
+        throw new Error(
+            'Bootstrap modal JavaScript not found. Check base.html.'
+        );
+    }
+
+    function renderOrderDetails(order) {
+        const customer = order.customer || {};
+        const address = order.shipping_address || {};
+        const items = Array.isArray(order.items) ? order.items : [];
+        const modalBody = $('vendor-order-modal-body');
+
+        modalBody.replaceChildren();
+
+        // Customer information
+        const customerSection = document.createElement('div');
+        customerSection.className = 'vendor-order-section';
+
+        const customerHeading = document.createElement('h6');
+        customerHeading.textContent = 'Customer Information';
+        customerSection.appendChild(customerHeading);
+
+        [
+            ['Name', getCustomerName(customer)],
+            ['Email', customer.email || '—'],
+            ['Phone', customer.phone || customer.phone_number || '—']
+        ].forEach(([label, value]) => {
+            const p = document.createElement('p');
+            p.className = 'mb-1';
+
+            const strong = document.createElement('strong');
+            strong.textContent = label + ': ';
+
+            p.append(strong, document.createTextNode(String(value)));
+            customerSection.appendChild(p);
+        });
+
+        // Shipping address
+        const addressSection = document.createElement('div');
+        addressSection.className = 'vendor-order-section';
+
+        const addressHeading = document.createElement('h6');
+        addressHeading.textContent = 'Shipping Address';
+
+        const addressParagraph = document.createElement('p');
+        addressParagraph.className = 'mb-0';
+
+        const addressParts = [
+            address.address_line_1,
+            address.address_line_2,
+            address.city,
+            address.state,
+            address.postal_code || address.pincode,
+            address.country
+        ].filter(Boolean);
+
+        addressParagraph.textContent = addressParts.length
+            ? addressParts.join(', ')
+            : 'Shipping address not available';
+
+        addressSection.append(addressHeading, addressParagraph);
+
+        // Order items
+        const itemsSection = document.createElement('div');
+        itemsSection.className = 'vendor-order-section';
+
+        const itemsHeading = document.createElement('h6');
+        itemsHeading.textContent = 'Order Items';
+
+        const tableWrapper = document.createElement('div');
+        tableWrapper.className = 'table-responsive';
+
+        const table = document.createElement('table');
+        table.className = 'table table-sm table-bordered';
+
+        const header = table.createTHead().insertRow();
+
+        ['Product', 'Price', 'Quantity', 'Subtotal'].forEach(label => {
+            const th = document.createElement('th');
+            th.textContent = label;
+            header.appendChild(th);
+        });
+
+        const tbody = table.createTBody();
+
+        if (items.length) {
+            items.forEach(item => {
+                const product = item.product || {};
+
+                const name =
+                    item.product_name ||
+                    product.name ||
+                    product.product_name ||
+                    'Product';
+
+                const price = Number(
+                    item.product_price ??
+                    product.price ??
+                    item.price ??
+                    0
+                );
+
+                const quantity = Number(item.quantity) || 0;
+
+                const subtotal = item.subtotal != null
+                    ? Number(item.subtotal)
+                    : price * quantity;
+
+                const row = tbody.insertRow();
+                const nameCell = row.insertCell();
+
+                const strong = document.createElement('strong');
+                strong.textContent = name;
+                nameCell.appendChild(strong);
+
+                const options = [
+                    item.color ? 'Color: ' + item.color : '',
+                    item.size ? 'Size: ' + item.size : ''
+                ].filter(Boolean).join(' · ');
+
+                if (options) {
+                    const small = document.createElement('div');
+                    small.className = 'small text-muted';
+                    small.textContent = options;
+                    nameCell.appendChild(small);
+                }
+
+                addCell(row, money(price));
+                addCell(row, quantity);
+                addCell(row, money(subtotal));
+            });
+        } else {
+            const row = tbody.insertRow();
+            const cell = row.insertCell();
+
+            cell.colSpan = 4;
+            cell.textContent = 'No items found.';
+        }
+
+        tableWrapper.appendChild(table);
+        itemsSection.append(itemsHeading, tableWrapper);
+
+        
+        // Vendor Invoice Summary
+        const summarySection = document.createElement('div');
+        summarySection.className = 'vendor-order-section';
+
+        const summaryHeading = document.createElement('h6');
+        summaryHeading.textContent = 'Vendor Invoice Summary';
+        summarySection.appendChild(summaryHeading);
+
+        const invoice = order.invoice || {
+            invoice_number: order.invoice_number,
+            subtotal: order.invoice_subtotal,
+            tax: order.invoice_tax,
+            total: order.invoice_total,
+            status: order.status,
+            url: order.invoice_url
+        };
+
+        const invoiceStatus = invoice.status || order.status || 'Unknown';
+
+        [
+            ['Invoice Number', invoice.invoice_number || 'Not generated'],
+            ['Your Sales (Subtotal)', money(invoice.subtotal ?? vendorSubtotal(order))],
+            ['Your Tax', money(invoice.tax ?? 0)],
+            ['Your Invoice Total', money(invoice.total ?? vendorSubtotal(order))],
+            ['Invoice Status', invoiceStatus],
+            ['Customer Order Total', money(order.order_total ?? 0)],
+            ['Order Date', formatDate(order.created_at)]
+        ].forEach(([label, value]) => {
+            const row = document.createElement('div');
+            row.className =
+                'd-flex justify-content-between align-items-center mb-2';
+
+            const labelElement = document.createElement('span');
+            labelElement.textContent = label;
+
+            const valueElement = document.createElement('span');
+            valueElement.textContent = String(value);
+
+            if (label === 'Invoice Status') {
+                valueElement.className =
+                    'vendor-status-badge ' + statusClass(invoiceStatus);
+            }
+
+            if (label === 'Your Invoice Total') {
+                valueElement.classList.add('font-weight-bold');
+            }
+
+            row.append(labelElement, valueElement);
+            summarySection.appendChild(row);
+        });
+
+        // View Invoice button
+        const invoiceUrl = invoice.url || order.invoice_url;
+        const invoiceButton = document.createElement('a');
+
+        invoiceButton.className = 'btn btn-outline-primary mt-2';
+        invoiceButton.textContent = 'View Invoice';
+
+        if (invoiceUrl) {
+            invoiceButton.href = invoiceUrl;
+            invoiceButton.target = '_blank';
+            invoiceButton.rel = 'noopener noreferrer';
+        } else {
+            invoiceButton.href = '#';
+            invoiceButton.classList.add('disabled');
+            invoiceButton.setAttribute('aria-disabled', 'true');
+        }
+
+        summarySection.appendChild(invoiceButton);
+
+
+        // Update status controls
+        const statusSection = document.createElement('div');
+        statusSection.className = 'vendor-order-section';
+
+        const statusHeading = document.createElement('h6');
+        statusHeading.textContent = 'Update Order Status';
+
+        const statusSelect = document.createElement('select');
+        statusSelect.id = 'vendor-order-status';
+        statusSelect.className = 'form-control mb-3';
+
+        ['New', 'Accepted', 'Completed', 'Cancelled'].forEach(status => {
+            const option = document.createElement('option');
+
+            option.value = status;
+            option.textContent = status;
+            option.selected =
+                String(order.status || '').toLowerCase() ===
+                status.toLowerCase();
+
+            statusSelect.appendChild(option);
+        });
+
+        const updateButton = document.createElement('button');
+        updateButton.type = 'button';
+        updateButton.id = 'vendor-update-status-btn';
+        updateButton.className = 'btn btn-primary';
+        updateButton.textContent = 'Update Status';
+
+        const statusMessage = document.createElement('div');
+        statusMessage.id = 'vendor-status-message';
+        statusMessage.className = 'mt-2';
+        statusMessage.setAttribute('role', 'status');
+
+        updateButton.addEventListener('click', function () {
+            updateOrderStatus(order.order_number);
+        });
+
+        statusSection.append(
+            statusHeading,
+            statusSelect,
+            updateButton,
+            statusMessage
+        );
+
+        modalBody.append(
+            customerSection,
+            addressSection,
+            itemsSection,
+            summarySection,
+            statusSection
+        );
+    }
+
+    // ---------------- OPEN ORDER DETAILS ----------------
+
+    async function openOrderDetails(orderNumber) {
+        $('vendorOrderModalTitle').textContent =
+            'Order #' + orderNumber;
+
+        $('modal-order-date').textContent = '';
+        $('vendor-order-modal-body').textContent =
+            'Loading order details...';
+
+        try {
+            showModal();
+        } catch (error) {
+            console.error(error);
+            $('vendor-order-modal-body').textContent = error.message;
+            return;
+        }
+
+        try {
+            const data = await apiGet(
+                ORDERS_URL + encodeURIComponent(orderNumber) + '/'
+            );
+
+            const order = data.order || data;
+
+            renderOrderDetails(order);
+
+            $('modal-order-date').textContent =
+                formatDate(order.created_at);
+
+        } catch (error) {
+            console.error('Order details error:', error);
+
+            $('vendor-order-modal-body').replaceChildren();
+
+            const message = document.createElement('div');
+            message.className = 'alert alert-danger';
+            message.textContent =
+                'Could not load order details: ' + error.message;
+
+            $('vendor-order-modal-body').appendChild(message);
+        }
+    }
+
+    // ---------------- UPDATE ORDER STATUS ----------------
+    async function updateOrderStatus(orderNumber) {
+        const select = $('vendor-order-status');
+        const button = $('vendor-update-status-btn');
+        const message = $('vendor-status-message');
+
+        if (!select || !button || !message) return;
+
+        const newStatus = select.value;
+
+        button.disabled = true;
+        select.disabled = true;
+        button.textContent = 'Updating...';
+        message.textContent = '';
+
+        try {
+            const response = await window.API.fetch(
+                ORDERS_URL +
+                encodeURIComponent(orderNumber) +
+                '/status/',
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        status: newStatus
+                    })
+                }
+            );
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail ||
+                    data.error ||
+                    data.message ||
+                    'Could not update order status.'
+                );
+            }
+
+            // Show success message
+            message.className = 'mt-2 text-success';
+            message.textContent =
+                message.textContent =
+                    'Invoice status updated successfully to ' + newStatus + '!';
+
+            // Update status in the open modal
+            const sections = Array.from(
+                $('vendor-order-modal-body').querySelectorAll(
+                    '.vendor-order-section'
+                )
+            );
+
+            const summarySection = sections.find(section =>
+                section.querySelector('h6')?.textContent === 'Vendor Invoice Summary'
+            );
+
+            if (summarySection) {
+                summarySection.querySelectorAll(':scope > div').forEach(row => {
+                    if (row.firstElementChild?.textContent === 'Invoice Status') {
+                        const statusElement = row.lastElementChild;
+
+                        statusElement.textContent = newStatus;
+                        statusElement.className =
+                            'vendor-status-badge ' + statusClass(newStatus);
+                    }
+                });
+            }
+
+            // Refresh orders table and dashboard statistics
+            await loadVendorOrders();
+
+        } catch (error) {
+            console.error('Update status error:', error);
+
+            message.className = 'mt-2 text-danger';
+            message.textContent = error.message;
+
+        } finally {
+            button.disabled = false;
+            select.disabled = false;
+            button.textContent = 'Update Status';
+        }
+    }
+
+    // ---------------- INITIALIZE DASHBOARD ----------------
+
+    async function start() {
+        if (!window.API) {
+            $('dashboard-error').textContent =
+                'API helper missing. Make sure api.js loads in base.html.';
+
+            $('dashboard-error').hidden = false;
+            return;
+        }
+
+        try {
+            await window.API.ready;
+
+            const results = await Promise.allSettled([
+                loadVendorProducts(),
+                loadVendorOrders()
+            ]);
+
+            const hasFailure = results.some(
+                result => result.status === 'rejected'
+            );
+
+            $('dashboard-error').hidden = !hasFailure;
+
+            if (hasFailure) {
+                $('dashboard-error').textContent =
+                    'Some dashboard information could not load. ' +
+                    'Check the warning messages above.';
+            }
+
+        } catch (error) {
+            console.error('Vendor dashboard error:', error);
+
+            $('dashboard-error').textContent = error.message;
+            $('dashboard-error').hidden = false;
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
+    }
+
+})();
+</script>
 
 {% endblock %}

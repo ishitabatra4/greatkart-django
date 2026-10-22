@@ -1,200 +1,238 @@
+
 {% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
 
 <section class="section-content padding-y">
-
-<div class="card mx-auto" style="max-width:520px; margin-top:40px;">
-
-<article class="card-body">
-
-{% include 'includes/alerts.html' %}
-
-<header class="mb-4">
-<h4 class="card-title">Sign up</h4>
-</header>
-
-<form action="{% url 'register' %}" method="POST">
-
-{% csrf_token %}
-
-<div class="form-group">
-
-<label>Register as</label>
-
-<div class="d-flex">
-
-<div class="mr-4">
-
-<label>
-<input
-    type="radio"
-    name="registration_type"
-    value="customer"
-    checked
-    onclick="toggleVendorFields()"
->
-Customer
-</label>
-
-</div>
-
-<div>
-
-<label>
-<input
-    type="radio"
-    name="registration_type"
-    value="vendor"
-    onclick="toggleVendorFields()"
->
-Vendor
-</label>
-
-</div>
-
-</div>
-
-</div>
-
-
-<div class="form-row">
-
-<div class="col form-group">
-
-<label>First name</label>
-
-{{ form.first_name }}
-
-</div>
-
-<div class="col form-group">
-
-<label>Last name</label>
-
-{{ form.last_name }}
-
-</div>
-
-</div>
-
-
-<div class="form-row">
-
-<div class="form-group col-md-6">
-
-<label>Email Address</label>
-
-{{ form.email }}
-
-</div>
-
-<div class="form-group col-md-6">
-
-<label>Phone Number</label>
-
-{{ form.phone_number }}
-
-</div>
-
-</div>
-
-
-<div class="form-row">
-
-<div class="form-group col-md-6">
-
-<label>Create password</label>
-
-{{ form.password }}
-
-</div>
-
-<div class="form-group col-md-6">
-
-<label>Repeat password</label>
-
-{{ form.confirm_password }}
-
-</div>
-
-</div>
-
-
-<div id="vendor-fields" style="display:none;">
-
-<div class="form-group">
-
-<label>GSTIN</label>
-
-{{ form.gstin }}
-
-</div>
-
-</div>
-
-
-{{ form.registration_type.errors }}
-{{ form.email.errors }}
-{{ form.gstin.errors }}
-{{ form.confirm_password.errors }}
-{{ form.non_field_errors }}
-
-
-<div class="form-group">
-
-<button
-    type="submit"
-    class="btn btn-primary btn-block"
->
-Register
-</button>
-
-</div>
-
-</form>
-
-</article>
-
-</div>
-
-
-<p class="text-center mt-4">
-
-Have an account?
-<a href="{% url 'login' %}">Log In</a>
-
-</p>
-
-<br><br>
-
+    <div class="card mx-auto" style="max-width: 520px; margin-top: 40px;">
+        <article class="card-body">
+
+            {% include 'includes/alerts.html' %}
+
+            <header class="mb-4">
+                <h4 class="card-title">Sign up</h4>
+            </header>
+
+            <form id="register-form" action="{% url 'register' %}" method="POST">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label>Register as</label>
+
+                    <div class="d-flex">
+                        <div class="mr-4">
+                            <label>
+                                <input
+                                    type="radio"
+                                    name="registration_type"
+                                    value="customer"
+                                    checked
+                                    onclick="toggleVendorFields()"
+                                >
+                                Customer
+                            </label>
+                        </div>
+
+                        <div>
+                            <label>
+                                <input
+                                    type="radio"
+                                    name="registration_type"
+                                    value="vendor"
+                                    onclick="toggleVendorFields()"
+                                >
+                                Vendor
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="col form-group">
+                        <label>First name</label>
+                        {{ form.first_name }}
+                    </div>
+
+                    <div class="col form-group">
+                        <label>Last name</label>
+                        {{ form.last_name }}
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label>Email Address</label>
+                        {{ form.email }}
+                    </div>
+
+                    <div class="form-group col-md-6">
+                        <label>Phone Number</label>
+                        {{ form.phone_number }}
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label>Create password</label>
+                        {{ form.password }}
+                    </div>
+
+                    <div class="form-group col-md-6">
+                        <label>Repeat password</label>
+                        {{ form.confirm_password }}
+                    </div>
+                </div>
+
+                <div id="vendor-fields" style="display: none;">
+                    <div class="form-group">
+                        <label>GSTIN</label>
+                        {{ form.gstin }}
+                    </div>
+                </div>
+
+                {{ form.registration_type.errors }}
+                {{ form.email.errors }}
+                {{ form.gstin.errors }}
+                {{ form.confirm_password.errors }}
+                {{ form.non_field_errors }}
+
+                <div class="form-group">
+                    <button
+                        type="submit"
+                        class="btn btn-primary btn-block"
+                    >
+                        Register
+                    </button>
+                </div>
+
+                <div
+                    id="register-message"
+                    class="text-center mt-3"
+                    role="alert"
+                    aria-live="polite"
+                ></div>
+            </form>
+
+        </article>
+    </div>
+
+    <p class="text-center mt-4">
+        Have an account?
+        <a href="{% url 'login' %}">Log In</a>
+    </p>
+
+    <br><br>
 </section>
 
 
 <script>
-
 function toggleVendorFields() {
-
-    var vendorFields=document.getElementById('vendor-fields');
-
-    var vendorRadio=document.querySelector(
+    const selected = document.querySelector(
         'input[name="registration_type"]:checked'
     );
 
-    if(vendorRadio.value==='vendor') {
+    const vendorFields = document.getElementById('vendor-fields');
 
-        vendorFields.style.display='block';
-
+    if (vendorFields) {
+        vendorFields.style.display =
+            selected && selected.value === 'vendor' ? 'block' : 'none';
     }
-    else {
-
-        vendorFields.style.display='none';
-
-    }
-
 }
 
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('register-form');
+    const message = document.getElementById('register-message');
+
+    if (!form || !window.API) {
+        console.error('Registration form or API helper is missing.');
+        return;
+    }
+
+    const button = form.querySelector('[type="submit"]');
+
+    toggleVendorFields();
+
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        message.textContent = '';
+        message.className = 'text-center mt-3';
+
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        // Keep the field name expected by RegisterSerializer.
+        data.registration_type =
+            data.registration_type || 'customer';
+
+        if (data.registration_type === 'customer') {
+            delete data.gstin;
+        }
+
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Registering...';
+        }
+
+        try {
+            const response = await window.API.request(
+                '/accounts/api/register/',
+                {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                }
+            );
+
+            const result = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const errors = Object.entries(result)
+                    .map(([field, value]) => {
+                        const details = Array.isArray(value)
+                            ? value.join(' ')
+                            : typeof value === 'string'
+                                ? value
+                                : JSON.stringify(value);
+
+                        return field + ': ' + details;
+                    })
+                    .join(' ');
+
+                throw new Error(errors || 'Registration failed.');
+            }
+
+            message.textContent =
+                result.message ||
+                'Registration successful. Please verify your email.';
+
+            message.className = 'text-center mt-3 text-success';
+
+            const email = result.email || data.email;
+
+            setTimeout(function () {
+                window.location.href =
+                    '/accounts/login/?command=verification&email=' +
+                    encodeURIComponent(email);
+            }, 1200);
+
+        } catch (error) {
+            console.error('Registration error:', error);
+
+            message.textContent =
+                error.message || 'Registration failed. Please try again.';
+
+            message.className = 'text-center mt-3 text-danger';
+
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Register';
+            }
+        }
+    });
+});
 </script>
+
 
 {% endblock %}s

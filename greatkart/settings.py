@@ -160,6 +160,8 @@ MESSAGE_TAGS = {
 
 # SMTP configuration
 # SMTP configuration
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST')
 EMAIL_PORT = config('EMAIL_PORT', cast=int)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER')
@@ -168,10 +170,19 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-REST_FRAMEWORK={
-    'DEFAULT_AUTHENTICATION_CLASSES':(
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+
+    'DEFAULT_PAGINATION_CLASS':
+        'rest_framework.pagination.PageNumberPagination',
+
+    'PAGE_SIZE': 6,
 }
 
 SIMPLE_JWT={
@@ -180,3 +191,10 @@ SIMPLE_JWT={
     'ROTATE_REFRESH_TOKENS':True,
     'BLACKLIST_AFTER_ROTATION':True,
 }
+
+# JWT refresh-token cookie settings
+JWT_REFRESH_COOKIE_NAME = 'refresh_token'
+JWT_REFRESH_COOKIE_PATH = '/accounts/api/'
+JWT_REFRESH_COOKIE_HTTPONLY = True
+JWT_REFRESH_COOKIE_SAMESITE = 'Lax'
+JWT_REFRESH_COOKIE_SECURE = not DEBUG

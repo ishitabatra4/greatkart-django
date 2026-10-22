@@ -1,479 +1,812 @@
 {% extends 'base.html' %}
 
 {% block content %}
-
 <section class="section-content padding-y">
-
-    <div class="container">
-
-        <div class="row">
-
-            <div class="col-lg-8 mx-auto">
-
-                <div class="dashboard-wrapper">
-
-                    <!-- Dashboard Header -->
-
-                    <div class="dashboard-card dashboard-header">
-
-                        <h3>
-                            Welcome {{ request.user.first_name }}
-                        </h3>
-
-
-                        {% if request.user.is_vendor %}
-
-                            <h5>
-                                Vendor Dashboard
-                            </h5>
-
-                        {% else %}
-
-                            <h5>
-                                My Account
-                            </h5>
-
-                        {% endif %}
-
-                    </div>
-
-
-                    <!-- Main Dashboard Links -->
-
-                    <div class="dashboard-card">
-
-                        {% if request.user.is_vendor %}
-
-                            <a
-                                href="{% url 'vendor_orders' %}"
-                                class="dashboard-link"
-                            >
-                                Vendor Orders
-                            </a>
-
-
-                            <a
-                                href="{% url 'vendor_products' %}"
-                                class="dashboard-link"
-                            >
-                                My Products
-                            </a>
-
-
-                            <a
-                                href="{% url 'vendor_product_add' %}"
-                                class="dashboard-link"
-                            >
-                                Add Product
-                            </a>
-
-
-                            <a
-                                href="{% url 'request_category' %}"
-                                class="dashboard-link"
-                            >
-                                Request Category
-                            </a>
-
-                        {% else %}
-
-                            <a
-                                href="{% url 'my_orders' %}"
-                                class="dashboard-link"
-                            >
-                                My Orders
-                            </a>
-
-                        {% endif %}
-
-                    </div>
-
-
-                    <!-- Account Links -->
-
-                    <div class="dashboard-card dashboard-account-links">
-
-                        <a
-                            href="{% url 'profile' %}"
-                            class="dashboard-link"
-                        >
-                            Profile
-                        </a>
-
-
-                        <a
-                            href="{% url 'edit_profile' %}"
-                            class="dashboard-link"
-                        >
-                            Edit Profile
-                        </a>
-
-
-                        <a
-                            href="{% url 'change_password' %}"
-                            class="dashboard-link"
-                        >
-                            Change Password
-                        </a>
-
-                    </div>
-
-
-                    <!-- Logout -->
-
-                    <div class="logout-card">
-
-                        <a
-                            href="{% url 'logout' %}"
-                            class="logout-link"
-                        >
-
-                            <i class="fa fa-power-off"></i>
-
-                            <span>
-                                Log out
-                            </span>
-
-                        </a>
-
-                    </div>
-
-
-                    {% if not request.user.is_vendor %}
-
-                        <!-- Customer Order History -->
-
-                        <div class="dashboard-card order-history">
-
-                            <div class="order-history-header">
-
-                                <h5>
-                                    Your order history
-                                </h5>
-
-                            </div>
-
-
-                            {% if orders %}
-
-                                <div class="table-responsive">
-
-                                    <table class="table order-table">
-
-                                        <thead>
-
-                                            <tr>
-
-                                                <th>
-                                                    Order #
-                                                </th>
-
-                                                <th>
-                                                    Billing Name
-                                                </th>
-
-                                                <th>
-                                                    Phone
-                                                </th>
-
-                                                <th>
-                                                    Order Total
-                                                </th>
-
-                                                <th>
-                                                    Date
-                                                </th>
-
-                                            </tr>
-
-                                        </thead>
-
-
-                                        <tbody>
-
-                                            {% for order in orders %}
-
-                                                <tr>
-
-                                                    <td>
-
-                                                        <a
-                                                            href="{% url 'order_detail' order.order_number %}"
-                                                            class="order-link"
-                                                        >
-                                                            {{ order.order_number }}
-                                                        </a>
-
-                                                    </td>
-
-
-                                                    <td>
-                                                        {{ order.first_name }}
-                                                        {{ order.last_name }}
-                                                    </td>
-
-
-                                                    <td>
-                                                        {{ order.phone }}
-                                                    </td>
-
-
-                                                    <td>
-                                                        ₹{{ order.order_total }}
-                                                    </td>
-
-
-                                                    <td>
-                                                        {{ order.created_at|date:"d M Y" }}
-                                                    </td>
-
-                                                </tr>
-
-                                            {% endfor %}
-
-                                        </tbody>
-
-                                    </table>
-
-                                </div>
-
-                            {% else %}
-
-                                <div class="no-orders">
-
-                                    <p>
-                                        You have not placed any orders yet.
-                                    </p>
-
-                                    <a
-                                        href="{% url 'store' %}"
-                                        class="shop-now-link"
-                                    >
-                                        Continue Shopping
-                                    </a>
-
-                                </div>
-
-                            {% endif %}
-
-                        </div>
-
+    <div class="container dashboard-container">
+
+        <!-- Dashboard header -->
+        <div class="dashboard-header">
+            <div>
+                <p class="eyebrow">YOUR ACCOUNT</p>
+                <h2>Welcome, {{ request.user.first_name|default:request.user.username }}</h2>
+                <p class="muted">
+                    {% if request.user.is_vendor %}
+                        Manage your orders and track your sales.
+                    {% else %}
+                        Manage your account and track your orders.
                     {% endif %}
+                </p>
+            </div>
+            <span class="role-badge">
+                {% if request.user.is_vendor %}Vendor{% else %}Customer{% endif %}
+            </span>
+        </div>
 
+        <!-- Account navigation -->
+        <div class="dashboard-nav">
+            {% if request.user.is_vendor %}
+                <a href="{% url 'vendor_orders' %}">Vendor Orders</a>
+                <a href="{% url 'vendor_products' %}">My Products</a>
+                <a href="{% url 'vendor_product_add' %}">Add Product</a>
+                <a href="{% url 'request_category' %}">Request Category</a>
+            {% else %}
+                <a href="{% url 'my_orders' %}">My Orders</a>
+                <a href="{% url 'store' %}">Continue Shopping</a>
+            {% endif %}
+            <a href="{% url 'profile' %}">Profile</a>
+            <a href="{% url 'edit_profile' %}">Edit Profile</a>
+            <a href="{% url 'change_password' %}">Change Password</a>
+            <a href="{% url 'logout' %}" class="logout-link">Log out</a>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span>{% if request.user.is_vendor %}Orders{% else %}My Orders{% endif %}</span>
+                <strong id="stat-orders">—</strong>
+            </div>
+            <div class="stat-card">
+                <span>New Orders</span>
+                <strong id="stat-new">—</strong>
+            </div>
+            <div class="stat-card">
+                <span>{% if request.user.is_vendor %}Your Sales{% else %}Order Value{% endif %}</span>
+                <strong id="stat-sales">—</strong>
+            </div>
+        </div>
+
+        <!-- Orders table -->
+        <div class="dashboard-card">
+            <div class="card-heading">
+                <div>
+                    <h4>{% if request.user.is_vendor %}My Orders{% else %}Your Order History{% endif %}</h4>
+                    <p class="muted">Click an order number to see its details.</p>
                 </div>
-
+                <button type="button" id="refresh-orders" class="btn-outline">Refresh</button>
             </div>
 
+            <div id="orders-loading" class="state-message">Loading orders...</div>
+            <div id="orders-error" class="state-message error-message" hidden></div>
+            <div id="orders-empty" class="state-message" hidden>No orders found.</div>
+
+            <div class="table-responsive" id="orders-table-wrapper" hidden>
+                <table class="table dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>{% if request.user.is_vendor %}Customer{% else %}Billing Name{% endif %}</th>
+                            <th>Items</th>
+                            <th>{% if request.user.is_vendor %}Your Sales{% else %}Total{% endif %}</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Inline order details panel -->
+        <div class="dashboard-card details-card" id="order-details-panel" hidden>
+            <div class="card-heading">
+                <div>
+                    <p class="eyebrow">ORDER DETAILS</p>
+                    <h4 id="detail-heading">Order</h4>
+                </div>
+                <button type="button" id="close-details" class="btn-outline">Close</button>
+            </div>
+
+            <div id="detail-loading" class="state-message" hidden>Loading order details...</div>
+            <div id="detail-error" class="state-message error-message" hidden></div>
+
+            <div id="detail-content" hidden>
+                <div class="detail-grid">
+                    <div class="detail-block">
+                        <span>Order Number</span>
+                        <strong id="detail-order-number">—</strong>
+                    </div>
+                    <div class="detail-block">
+                        <span>Order Date</span>
+                        <strong id="detail-order-date">—</strong>
+                    </div>
+                    <div class="detail-block">
+                        <span>Status</span>
+                        <strong id="detail-status">—</strong>
+                    </div>
+                    <div class="detail-block">
+                        <span>Payment / Order Total</span>
+                        <strong id="detail-total">—</strong>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h5>Customer Information</h5>
+                    <p id="detail-customer">—</p>
+                    <p id="detail-email">—</p>
+                    <p id="detail-phone">—</p>
+                </div>
+
+                <div class="detail-section">
+                    <h5>Shipping Address</h5>
+                    <p id="detail-address">—</p>
+                </div>
+
+                <div class="detail-section">
+                    <h5>Items</h5>
+                    <div class="table-responsive">
+                        <table class="table dashboard-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Variation</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody id="detail-items"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="totals-box">
+                    <div><span>Subtotal</span><strong id="detail-subtotal">—</strong></div>
+                    <div><span>Tax</span><strong id="detail-tax">—</strong></div>
+                    <div class="grand-total"><span>Total</span><strong id="detail-grand-total">—</strong></div>
+                </div>
+            </div>
         </div>
 
     </div>
-
 </section>
 
-
 <style>
-
-    .dashboard-wrapper {
-        max-width: 700px;
-        margin: 30px auto;
-    }
-
-
-    .dashboard-card {
-        background: #ffffff;
-        border: 1px solid #e5e5e5;
-        border-radius: 5px;
-        overflow: hidden;
-        margin-bottom: 24px;
-    }
-
-
-    .dashboard-header {
-        padding: 25px 20px;
-    }
-
-
-    .dashboard-header h3 {
-        margin: 0 0 8px 0;
-        color: #333333;
-        font-size: 28px;
-        font-weight: 600;
-    }
-
-
-    .dashboard-header h5 {
-        margin: 0;
-        color: #555555;
-        font-size: 18px;
-        font-weight: 500;
-    }
-
-
-    .dashboard-link {
-        display: block;
-        padding: 14px 20px;
-        background: #ffffff;
-        border-bottom: 1px solid #e5e5e5;
-        color: #356ae6;
-        font-size: 16px;
-        text-decoration: none;
-        transition: all 0.2s ease;
-    }
-
-
-    .dashboard-link:last-child {
-        border-bottom: none;
-    }
-
-
-    .dashboard-link:hover {
-        background: #f5f7ff;
-        color: #356ae6;
-        text-decoration: none;
-    }
-
-
-    .dashboard-account-links {
-        margin-bottom: 20px;
-    }
-
-
-    .logout-card {
-        background: #ffffff;
-        border: 1px solid #e5e5e5;
-        border-radius: 5px;
-        margin-bottom: 24px;
-    }
-
-
-    .logout-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 11px 20px;
-        color: #333333;
-        font-size: 16px;
-        font-weight: 600;
-        text-decoration: none;
-    }
-
-
-    .logout-link:hover {
-        background: #f5f7ff;
-        color: #356ae6;
-        text-decoration: none;
-    }
-
-
-    .logout-link i {
-        color: #666666;
-    }
-
-
-    .logout-link:hover i {
-        color: #356ae6;
-    }
-
-
-    .order-history {
-        margin-top: 5px;
-    }
-
-
-    .order-history-header {
-        padding: 18px 20px;
-        border-bottom: 1px solid #e5e5e5;
-    }
-
-
-    .order-history-header h5 {
-        margin: 0;
-        color: #333333;
-        font-size: 18px;
-        font-weight: 600;
-    }
-
-
-    .order-table {
-        margin: 0;
-    }
-
-
-    .order-table thead th {
-        color: #333333;
-        font-size: 15px;
-        font-weight: 600;
-        border-bottom: 1px solid #e5e5e5;
-        padding: 15px 12px;
-        white-space: nowrap;
-    }
-
-
-    .order-table tbody td {
-        color: #555555;
-        font-size: 14px;
-        padding: 15px 12px;
-        vertical-align: middle;
-    }
-
-
-    .order-link {
-        color: #356ae6;
-        font-weight: 500;
-        text-decoration: none;
-    }
-
-
-    .order-link:hover {
-        color: #2455c7;
-        text-decoration: none;
-    }
-
-
-    .no-orders {
-        padding: 30px 20px;
-        text-align: center;
-    }
-
-
-    .no-orders p {
-        color: #666666;
-        margin-bottom: 15px;
-    }
-
-
-    .shop-now-link {
-        color: #356ae6;
-        text-decoration: none;
-        font-weight: 500;
-    }
-
-
-    .shop-now-link:hover {
-        color: #2455c7;
-        text-decoration: none;
-    }
-
-
-    @media (max-width: 767px) {
-
-        .dashboard-wrapper {
-            margin: 15px auto;
-        }
-
-
-        .dashboard-header h3 {
-            font-size: 24px;
-        }
-
-
-        .order-table {
-            min-width: 650px;
-        }
-
-    }
-
+.dashboard-container {
+    max-width: 1120px;
+    margin: 30px auto 55px;
+    color: #252525;
+}
+.dashboard-header, .card-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+.dashboard-header {
+    padding: 25px 0;
+}
+.dashboard-header h2 {
+    margin: 0 0 8px;
+    font-size: 29px;
+    font-weight: 700;
+}
+.eyebrow {
+    color: #777;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    margin-bottom: 8px;
+}
+.muted {
+    color: #777;
+    margin: 5px 0;
+}
+.role-badge {
+    background: #edf2ff;
+    color: #315bd6;
+    border-radius: 20px;
+    padding: 7px 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.dashboard-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 17px;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    margin-bottom: 24px;
+}
+.dashboard-nav a, .btn-outline {
+    display: inline-block;
+    padding: 9px 13px;
+    border: 1px solid #e4e4e4;
+    border-radius: 7px;
+    background: #fff;
+    color: #333;
+    text-decoration: none;
+    font-size: 13px;
+    cursor: pointer;
+}
+.dashboard-nav a:hover, .btn-outline:hover {
+    background: #f5f5f5;
+}
+.dashboard-nav .logout-link {
+    color: #c0392b;
+}
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.stat-card, .dashboard-card {
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    background: #fff;
+}
+.stat-card {
+    padding: 20px;
+}
+.stat-card span, .detail-block span {
+    display: block;
+    color: #777;
+    font-size: 13px;
+    margin-bottom: 9px;
+}
+.stat-card strong {
+    font-size: 25px;
+    overflow-wrap: anywhere;
+}
+.dashboard-card {
+    padding: 22px;
+    margin-bottom: 24px;
+}
+.card-heading {
+    margin-bottom: 18px;
+}
+.card-heading h4 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+.dashboard-table {
+    width: 100%;
+    margin-bottom: 0;
+}
+.dashboard-table th {
+    background: #fafafa;
+    color: #555;
+    font-size: 13px;
+    white-space: nowrap;
+}
+.dashboard-table td {
+    vertical-align: middle;
+    font-size: 13px;
+}
+.order-number-link {
+    color: #315bd6;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.order-number-link:hover {
+    text-decoration: underline;
+}
+.status-badge {
+    display: inline-block;
+    border-radius: 20px;
+    padding: 5px 9px;
+    background: #f0f0f0;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.status-new { background: #eaf0ff; color: #315bd6; }
+.status-accepted { background: #fff3d7; color: #8b6100; }
+.status-completed { background: #e4f7eb; color: #19713a; }
+.status-cancelled { background: #fde8e7; color: #b42318; }
+.action-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.action-btn {
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.action-btn:disabled {
+    opacity: .5;
+    cursor: wait;
+}
+.action-accept { color: #176b37; }
+.action-complete { color: #315bd6; }
+.action-cancel { color: #b42318; }
+.state-message {
+    padding: 18px 0;
+    color: #777;
+}
+.error-message { color: #b42318; }
+.details-card { scroll-margin-top: 25px; }
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 22px;
+}
+.detail-block {
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 14px;
+    overflow-wrap: anywhere;
+}
+.detail-block strong { font-size: 14px; }
+.detail-section {
+    border-top: 1px solid #eee;
+    padding: 18px 0;
+}
+.detail-section h5 {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+.detail-section p {
+    margin-bottom: 6px;
+    color: #555;
+    overflow-wrap: anywhere;
+}
+.totals-box {
+    max-width: 360px;
+    margin-left: auto;
+    padding-top: 15px;
+}
+.totals-box div {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 7px 0;
+}
+.grand-total {
+    border-top: 1px solid #ddd;
+    margin-top: 5px;
+    padding-top: 12px !important;
+    font-size: 17px;
+    font-weight: 700;
+}
+@media (max-width: 767px) {
+    .dashboard-container { margin-top: 15px; }
+    .dashboard-header h2 { font-size: 23px; }
+    .stats-grid { grid-template-columns: 1fr; }
+    .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dashboard-card { padding: 15px; }
+}
 </style>
 
+<script>
+const IS_VENDOR =
+    "{{ request.user.is_vendor|yesno:'true,false' }}" === "true";
+
+document.addEventListener("DOMContentLoaded", async function () {
+    const $ = (id) => document.getElementById(id);
+
+    const ORDERS_URL = IS_VENDOR
+        ? "/accounts/api/vendor/orders/"
+        : "/accounts/api/orders/";
+
+    let orders = [];
+
+    async function apiRequest(url, options = {}) {
+        const response = await window.API.fetch(url, options);
+
+        let data = {};
+        try {
+            data = await response.json();
+        } catch (_) {}
+
+        if (!response.ok) {
+            throw new Error(
+                data.detail || data.error || `HTTP ${response.status}`
+            );
+        }
+
+        return data;
+    }
+
+    function escapeHTML(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+        })[char]);
+    }
+
+    function money(value) {
+        return "₹" + Number(value || 0).toLocaleString("en-IN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
+    function formatDate(value) {
+        if (!value) return "—";
+        const date = new Date(value);
+        return Number.isNaN(date.getTime())
+            ? "—"
+            : date.toLocaleString("en-IN");
+    }
+
+    function statusBadge(status) {
+        return `<span class="badge bg-secondary">${escapeHTML(status || "New")}</span>`;
+    }
+
+    function customerName(order) {
+        const customer = order.customer || {};
+
+        return [
+            customer.first_name || order.first_name,
+            customer.last_name || order.last_name
+        ].filter(Boolean).join(" ") || "Customer";
+    }
+
+    function getAddress(address) {
+        if (!address) return "No address available";
+        if (typeof address === "string") return address;
+
+        return [
+            address.address_line_1 || address.address_line1,
+            address.address_line_2 || address.address_line2,
+            address.city,
+            address.state,
+            address.postal_code || address.pincode || address.zip_code,
+            address.country
+        ].filter(Boolean).join(", ") || "No address available";
+    }
+
+    function renderItems(items) {
+        if (!Array.isArray(items) || !items.length) {
+            return "<p>No product items found.</p>";
+        }
+
+        return `
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Price</th>
+                            <th>Quantity</th>
+                            <th>Color / Size</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${items.map(item => {
+                            const product = item.product || {};
+                            const name = item.product_name ||
+                                product.name ||
+                                product.product_name ||
+                                item.name || "Product";
+
+                            const price = item.product_price ??
+                                item.price ??
+                                product.price ?? 0;
+
+                            const qty = Number(item.quantity || 0);
+                            const subtotal = item.subtotal ?? price * qty;
+
+                            return `
+                                <tr>
+                                    <td>${escapeHTML(name)}</td>
+                                    <td>${money(price)}</td>
+                                    <td>${qty}</td>
+                                    <td>${escapeHTML(
+                                        [item.color, item.size]
+                                            .filter(Boolean).join(" / ") || "—"
+                                    )}</td>
+                                    <td>${money(subtotal)}</td>
+                                </tr>`;
+                        }).join("")}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    function renderStats() {
+        if ($("stat-orders")) {
+            $("stat-orders").textContent = orders.length;
+        }
+
+        if ($("stat-new")) {
+            $("stat-new").textContent = orders.filter(
+                order => order.status === "New"
+            ).length;
+        }
+
+        if ($("stat-sales")) {
+            const sales = orders
+                .filter(order => order.is_ordered)
+                .reduce((sum, order) =>
+                    sum + Number(
+                        IS_VENDOR
+                            ? (order.vendor_subtotal ?? order.order_total ?? 0)
+                            : (order.order_total ?? 0)
+                    ), 0);
+
+            $("stat-sales").textContent = money(sales);
+        }
+    }
+
+    function renderOrderRow(order) {
+        const number = order.order_number || "";
+
+        const itemCount = Array.isArray(order.items)
+            ? order.items.reduce(
+                (sum, item) => sum + Number(item.quantity || 0), 0
+            )
+            : Number(order.items_count ?? order.item_count ?? 0);
+
+        return `
+            <tr>
+                <td>
+                    <a href="#"
+                       class="order-link"
+                       data-detail-order="${escapeHTML(number)}"
+                       style="cursor:pointer;color:#0d6efd;text-decoration:underline;">
+                        ${escapeHTML(number)}
+                    </a>
+                </td>
+                <td>${escapeHTML(customerName(order))}</td>
+                <td>${itemCount}</td>
+                <td>${money(
+                    IS_VENDOR
+                        ? (order.vendor_subtotal ?? order.order_total ?? 0)
+                        : (order.order_total ?? 0)
+                )}</td>
+                <td>${statusBadge(order.status)}</td>
+                <td>${escapeHTML(formatDate(order.created_at))}</td>
+                <td>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary"
+                            data-detail-order="${escapeHTML(number)}">
+                        View Details
+                    </button>
+                </td>
+            </tr>`;
+    }
+
+    function renderVendorActions(order) {
+        const number = escapeHTML(order.order_number);
+        let buttons = "";
+
+        if (order.status === "New") {
+            buttons += `
+                <button type="button" class="btn btn-success"
+                        data-order-number="${number}"
+                        data-order-status="Accepted">Accept</button>
+                <button type="button" class="btn btn-danger"
+                        data-order-number="${number}"
+                        data-order-status="Cancelled">Cancel</button>`;
+        } else if (order.status === "Accepted") {
+            buttons += `
+                <button type="button" class="btn btn-primary"
+                        data-order-number="${number}"
+                        data-order-status="Completed">Mark Completed</button>
+                <button type="button" class="btn btn-danger"
+                        data-order-number="${number}"
+                        data-order-status="Cancelled">Cancel</button>`;
+        }
+
+        return buttons;
+    }
+
+    function renderCustomerActions(order) {
+        if (["New", "Accepted"].includes(order.status) && order.is_ordered) {
+            return `
+                <button type="button" class="btn btn-danger"
+                        data-cancel-order="${escapeHTML(order.order_number)}">
+                    Cancel Order
+                </button>`;
+        }
+        return "";
+    }
+
+    async function showOrderDetails(number) {
+        console.log("Opening order details:", number);
+
+        const panel = $("order-details-panel");
+
+        if (!panel) {
+            console.error(
+                'HTML element id="order-details-panel" was not found.'
+            );
+            alert("Order details panel is missing from dashboard.html.");
+            return;
+        }
+
+        panel.hidden = false;
+        panel.style.display = "";
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        const itemsContainer = $("detail-items");
+        if (itemsContainer) {
+            itemsContainer.innerHTML = "<p>Loading order details...</p>";
+        }
+
+        try {
+            const baseURL = IS_VENDOR
+                ? "/accounts/api/vendor/orders/"
+                : "/accounts/api/orders/";
+
+            const data = await apiRequest(
+                `${baseURL}${encodeURIComponent(number)}/`
+            );
+
+            const order = data.order || data;
+
+            console.log("Loaded order details:", order);
+
+            const customer = order.customer || {};
+            const address = order.shipping_address || order.address;
+
+            const setText = (id, value) => {
+                if ($(id)) $(id).textContent = value ?? "—";
+            };
+
+            setText("detail-order-number", order.order_number || number);
+            setText("detail-order-date", formatDate(order.created_at));
+            setText("detail-customer", customerName(order));
+            setText("detail-email", customer.email || order.email || "—");
+            setText("detail-phone", customer.phone || order.phone || "—");
+            setText("detail-address", getAddress(address));
+
+            const calculatedSubtotal = (order.items || []).reduce(
+                (sum, item) => sum + Number(
+                    item.subtotal ??
+                    (item.product_price ?? item.price ??
+                     item.product?.price ?? 0) * Number(item.quantity || 0)
+                ), 0
+            );
+
+            setText("detail-subtotal", money(
+                order.vendor_subtotal ?? order.subtotal ?? calculatedSubtotal
+            ));
+            setText("detail-tax", money(order.tax));
+            setText("detail-total", money(order.order_total));
+            setText("detail-grand-total", money(order.order_total));
+
+            if ($("detail-status")) {
+                $("detail-status").innerHTML = statusBadge(order.status);
+            }
+
+            if ($("detail-items")) {
+                $("detail-items").innerHTML = renderItems(order.items);
+            }
+
+            if ($("detail-actions")) {
+                $("detail-actions").innerHTML = IS_VENDOR
+                    ? renderVendorActions(order)
+                    : renderCustomerActions(order);
+            }
+        } catch (error) {
+            console.error("Could not load order details:", error);
+
+            if ($("detail-items")) {
+                $("detail-items").innerHTML =
+                    `<p class="text-danger">Failed to load details: ${escapeHTML(error.message)}</p>`;
+            }
+        }
+    }
+
+    async function loadOrders() {
+        const tbody = $("orders-tbody");
+
+        if (!tbody) {
+            console.error("Dashboard table body #orders-tbody not found.");
+            return;
+        }
+
+        tbody.innerHTML =
+            `<tr><td colspan="7">Loading orders...</td></tr>`;
+
+        try {
+            const data = await apiRequest(ORDERS_URL);
+            orders = Array.isArray(data.orders) ? data.orders : [];
+
+            renderStats();
+
+            tbody.innerHTML = orders.length
+                ? orders.map(renderOrderRow).join("")
+                : `<tr><td colspan="7">No orders found.</td></tr>`;
+        } catch (error) {
+            console.error("Failed to load orders:", error);
+            tbody.innerHTML = `
+                <tr><td colspan="7">
+                    Could not load orders: ${escapeHTML(error.message)}
+                </td></tr>`;
+        }
+    }
+
+    // One delegated click handler for order details, status, and cancellation.
+    document.addEventListener("click", async function (event) {
+        const detailButton = event.target.closest("[data-detail-order]");
+
+        if (detailButton) {
+            event.preventDefault();
+
+            const number = detailButton.getAttribute("data-detail-order");
+            console.log("ORDER CLICKED:", number);
+
+            await showOrderDetails(number);
+            return;
+        }
+
+        const statusButton = event.target.closest("[data-order-status]");
+
+        if (statusButton && IS_VENDOR) {
+            const number = statusButton.dataset.orderNumber;
+            const status = statusButton.dataset.orderStatus;
+
+            if (!confirm(`Change order status to ${status}?`)) return;
+
+            statusButton.disabled = true;
+
+            try {
+                await apiRequest(
+                    `/accounts/api/vendor/orders/${encodeURIComponent(number)}/status/`,
+                    {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ status })
+                    }
+                );
+
+                await loadOrders();
+                await showOrderDetails(number);
+                alert("Order status updated successfully.");
+            } catch (error) {
+                console.error("Status update failed:", error);
+                alert("Status update failed: " + error.message);
+            } finally {
+                statusButton.disabled = false;
+            }
+            return;
+        }
+
+        const cancelButton = event.target.closest("[data-cancel-order]");
+
+        if (cancelButton && !IS_VENDOR) {
+            const number = cancelButton.dataset.cancelOrder;
+
+            if (!confirm("Are you sure you want to cancel this order?")) {
+                return;
+            }
+
+            cancelButton.disabled = true;
+
+            try {
+                await apiRequest(
+                    `/accounts/api/orders/${encodeURIComponent(number)}/cancel/`,
+                    { method: "POST" }
+                );
+
+                await loadOrders();
+                alert("Order cancelled successfully.");
+            } catch (error) {
+                console.error("Cancellation failed:", error);
+                alert("Cancellation failed: " + error.message);
+            } finally {
+                cancelButton.disabled = false;
+            }
+        }
+    });
+
+    try {
+        if (window.API?.ready) {
+            await window.API.ready;
+        }
+        await loadOrders();
+    } catch (error) {
+        console.error("Dashboard initialization failed:", error);
+    }
+});
+</script>
 {% endblock %}
+
+

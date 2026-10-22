@@ -16,10 +16,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser,FormParser
-from accounts.permissions import IsApprovedVendor
+from accounts.permissions import IsApprovedVendor,IsAdminUser
 from accounts.models import VendorProfile
-
+from accounts.models import Account
 from .serializers import ProductSerializer
+from rest_framework.pagination import PageNumberPagination
 
 def store(request,category_slug=None):
     category=None
@@ -443,43 +444,80 @@ def request_category(request):
 @permission_classes([IsAuthenticated])
 def api_products(request):
 
-    products=Product.objects.filter(
+    products = Product.objects.filter(
         is_available=True,
         stock__gt=0
     )
 
-    serializer=ProductSerializer(
+    # 🔎 Search by product name
+    search = request.GET.get('search')
+    if search:
+        products = products.filter(
+            product_name__icontains=search
+        )
+
+    # 🗂️ Category filter: supports category ID and category slug
+    category_slug = request.GET.get('category_slug')
+    category_id = request.GET.get('category')
+
+    if category_slug:
+        products = products.filter(
+            category__slug=category_slug
+        )
+    elif category_id:
+        products = products.filter(
+            category__id=category_id
+        )
+
+    # 🏷️ Brand filter
+    brand = request.GET.get('brand')
+    if brand:
+        products = products.filter(
+            brand__iexact=brand
+        )
+
+    # 💰 Minimum price
+    min_price = request.GET.get('min_price')
+    if min_price:
+        products = products.filter(
+            price__gte=min_price
+        )
+
+    # 💰 Maximum price
+    max_price = request.GET.get('max_price')
+    if max_price:
+        products = products.filter(
+            price__lte=max_price
+        )
+
+    # ↕️ Sorting
+    sort = request.GET.get('sort')
+
+    if sort == 'price_asc':
+        products = products.order_by('price')
+    elif sort == 'price_desc':
+        products = products.order_by('-price')
+    else:
+        products = products.order_by('-created_date')
+
+    # 📄 Pagination — filters are applied before pagination
+    paginator = PageNumberPagination()
+    paginator.page_size = 6
+
+    result_page = paginator.paginate_queryset(
         products,
+        request
+    )
+
+    serializer = ProductSerializer(
+        result_page,
         many=True,
-        context={'request':request}
+        context={'request': request}
     )
 
-    return Response(serializer.data)
-
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def api_product_detail(request,product_id):
-
-    try:
-        product=Product.objects.get(
-            id=product_id,
-            is_available=True
-        )
-    except Product.DoesNotExist:
-        return Response(
-            {
-                'message':'Product not found.'
-            },
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    serializer=ProductSerializer(
-        product,
-        context={'request':request}
+    return paginator.get_paginated_response(
+        serializer.data
     )
-
-    return Response(serializer.data)
 
 @api_view(['GET'])
 @permission_classes([IsApprovedVendor])
@@ -773,6 +811,14 @@ def api_product_detail(request, product_id):
         'stock': product.stock,
         'is_available': product.is_available,
 
+        'image': request.build_absolute_uri(product.images.url) if product.images else None,
+
+        'gallery': [
+            request.build_absolute_uri(item.image.url)
+            for item in ProductGallery.objects.filter(product=product)
+            if item.image
+        ],
+
         'category': {
             'id': product.category.id,
             'name': product.category.category_name,
@@ -1020,3 +1066,674 @@ def api_product_reviews(request, product_id):
             else status.HTTP_200_OK
         )
     )
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminUser])
+def api_admin_products(request):
+
+    # =====================================================
+    # GET ALL PRODUCTS
+    # =====================================================
+
+    if request.method == 'GET':
+
+        products = Product.objects.select_related(
+            'vendor',
+            'category'
+        ).prefetch_related(
+            'variation_set',
+            'productgallery_set'
+        ).order_by('-created_date')
+
+        data = []
+
+        for product in products:
+
+            colors = []
+            sizes = []
+
+            for variation in product.variation_set.all():
+
+                variation_data = {
+                    'id': variation.id,
+                    'value': variation.variation_value,
+                    'is_active': variation.is_active
+                }
+
+                if variation.variation_category == 'color':
+                    colors.append(variation_data)
+
+                elif variation.variation_category == 'size':
+                    sizes.append(variation_data)
+
+            gallery = []
+
+            for image in product.productgallery_set.all():
+
+                gallery.append({
+                    'id': image.id,
+                    'image': request.build_absolute_uri(
+                        image.image.url
+                    ) if image.image else None
+                })
+
+            data.append({
+
+                'id': product.id,
+
+                'product_name': product.product_name,
+                'brand': product.brand,
+                'slug': product.slug,
+                'description': product.description,
+
+                'price': product.price,
+                'stock': product.stock,
+                'is_available': product.is_available,
+
+                'category': {
+                    'id': product.category.id,
+                    'name': product.category.category_name,
+                    'slug': product.category.slug
+                },
+
+                'vendor': (
+                    {
+                        'id': product.vendor.id,
+                        'first_name': product.vendor.first_name,
+                        'last_name': product.vendor.last_name,
+                        'email': product.vendor.email
+                    }
+                    if product.vendor
+                    else None
+                ),
+
+                'main_image': (
+                    request.build_absolute_uri(
+                        product.images.url
+                    )
+                    if product.images
+                    else None
+                ),
+
+                'variations': {
+                    'colors': colors,
+                    'sizes': sizes
+                },
+
+                'gallery': gallery,
+
+                'created_date': product.created_date,
+                'modified_date': product.modified_date
+            })
+
+        return Response({
+            'count': len(data),
+            'products': data
+        })
+
+
+    # =====================================================
+    # POST - CREATE PRODUCT
+    # =====================================================
+
+    product_name = request.data.get('product_name')
+    brand = request.data.get('brand', '')
+    description = request.data.get('description', '')
+    price = request.data.get('price')
+    stock = request.data.get('stock')
+    category_id = request.data.get('category_id')
+    vendor_id = request.data.get('vendor_id')
+
+    # -----------------------------------------------------
+    # REQUIRED FIELDS
+    # -----------------------------------------------------
+
+    if not product_name:
+        return Response(
+            {'message': 'Product name is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if price is None:
+        return Response(
+            {'message': 'Price is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if stock is None:
+        return Response(
+            {'message': 'Stock is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not category_id:
+        return Response(
+            {'message': 'Category is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not vendor_id:
+        return Response(
+            {'message': 'Vendor is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # -----------------------------------------------------
+    # VALIDATE PRICE AND STOCK
+    # -----------------------------------------------------
+
+    try:
+        price = int(price)
+        stock = int(stock)
+
+    except (TypeError, ValueError):
+
+        return Response(
+            {'message': 'Price and stock must be valid numbers.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if price < 0:
+        return Response(
+            {'message': 'Price cannot be negative.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if stock < 0:
+        return Response(
+            {'message': 'Stock cannot be negative.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # -----------------------------------------------------
+    # CATEGORY
+    # -----------------------------------------------------
+
+    try:
+        category = Category.objects.get(
+            id=category_id
+        )
+
+    except Category.DoesNotExist:
+
+        return Response(
+            {'message': 'Category not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # -----------------------------------------------------
+    # VENDOR
+    # -----------------------------------------------------
+
+    try:
+        vendor = Account.objects.get(
+            id=vendor_id,
+            is_vendor=True
+        )
+
+    except Account.DoesNotExist:
+
+        return Response(
+            {'message': 'Vendor not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # -----------------------------------------------------
+    # VENDOR MUST BE APPROVED
+    # -----------------------------------------------------
+
+    try:
+
+        if not vendor.vendorprofile.is_approved:
+
+            return Response(
+                {'message': 'Vendor is not approved.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    except VendorProfile.DoesNotExist:
+
+        return Response(
+            {'message': 'Vendor profile not found.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # -----------------------------------------------------
+    # MAIN IMAGE
+    # -----------------------------------------------------
+
+    main_image = request.FILES.get('images')
+
+    if not main_image:
+
+        return Response(
+            {'message': 'Product image is required.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # -----------------------------------------------------
+    # GENERATE UNIQUE SLUG
+    # -----------------------------------------------------
+
+    slug = slugify(product_name)
+
+    if Product.objects.filter(slug=slug).exists():
+
+        slug = slug + '-' + uuid4().hex[:6]
+
+    # -----------------------------------------------------
+    # CREATE PRODUCT
+    # -----------------------------------------------------
+
+    product = Product.objects.create(
+
+        vendor=vendor,
+
+        product_name=product_name,
+
+        brand=brand,
+
+        slug=slug,
+
+        description=description,
+
+        price=price,
+
+        images=main_image,
+
+        stock=stock,
+
+        is_available=stock > 0,
+
+        category=category
+    )
+
+    # =====================================================
+    # VARIATIONS
+    # =====================================================
+
+    colors = request.data.get('colors', '')
+    sizes = request.data.get('sizes', '')
+
+    # Colors
+    for color in colors.split(','):
+
+        color = color.strip()
+
+        if color:
+
+            Variation.objects.create(
+                product=product,
+                variation_category='color',
+                variation_value=color,
+                is_active=True
+            )
+
+    # Sizes
+    for size in sizes.split(','):
+
+        size = size.strip()
+
+        if size:
+
+            Variation.objects.create(
+                product=product,
+                variation_category='size',
+                variation_value=size,
+                is_active=True
+            )
+
+    # =====================================================
+    # GALLERY IMAGES
+    # =====================================================
+
+    gallery_images = request.FILES.getlist(
+        'gallery_images'
+    )
+
+    for image in gallery_images:
+
+        ProductGallery.objects.create(
+            product=product,
+            image=image
+        )
+
+    # =====================================================
+    # RESPONSE
+    # =====================================================
+
+    return Response(
+        {
+            'message': 'Product created successfully.',
+            'product_id': product.id
+        },
+        status=status.HTTP_201_CREATED
+    )
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([IsAdminUser])
+def api_admin_product_detail(request, product_id):
+
+    try:
+
+        product = Product.objects.select_related(
+            'vendor',
+            'category'
+        ).get(
+            id=product_id
+        )
+
+    except Product.DoesNotExist:
+
+        return Response(
+            {'message': 'Product not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+    # =====================================================
+    # GET DETAIL
+    # =====================================================
+
+    if request.method == 'GET':
+
+        variations = Variation.objects.filter(
+            product=product
+        )
+
+        colors = []
+        sizes = []
+
+        for variation in variations:
+
+            data = {
+                'id': variation.id,
+                'value': variation.variation_value,
+                'is_active': variation.is_active
+            }
+
+            if variation.variation_category == 'color':
+                colors.append(data)
+
+            elif variation.variation_category == 'size':
+                sizes.append(data)
+
+        gallery = []
+
+        for image in ProductGallery.objects.filter(
+            product=product
+        ):
+
+            gallery.append({
+                'id': image.id,
+                'image': request.build_absolute_uri(
+                    image.image.url
+                ) if image.image else None
+            })
+
+        return Response({
+
+            'id': product.id,
+
+            'product_name': product.product_name,
+            'brand': product.brand,
+            'slug': product.slug,
+            'description': product.description,
+
+            'price': product.price,
+            'stock': product.stock,
+            'is_available': product.is_available,
+
+            'category': {
+                'id': product.category.id,
+                'name': product.category.category_name,
+                'slug': product.category.slug
+            },
+
+            'vendor': (
+                {
+                    'id': product.vendor.id,
+                    'first_name': product.vendor.first_name,
+                    'last_name': product.vendor.last_name,
+                    'email': product.vendor.email
+                }
+                if product.vendor
+                else None
+            ),
+
+            'main_image': (
+                request.build_absolute_uri(
+                    product.images.url
+                )
+                if product.images
+                else None
+            ),
+
+            'variations': {
+                'colors': colors,
+                'sizes': sizes
+            },
+
+            'gallery': gallery,
+
+            'created_date': product.created_date,
+            'modified_date': product.modified_date
+        })
+
+
+    # =====================================================
+    # PATCH
+    # =====================================================
+
+    if request.method == 'PATCH':
+
+        if 'product_name' in request.data:
+
+            product.product_name = request.data[
+                'product_name'
+            ]
+
+        if 'brand' in request.data:
+
+            product.brand = request.data[
+                'brand'
+            ]
+
+        if 'description' in request.data:
+
+            product.description = request.data[
+                'description'
+            ]
+
+        if 'price' in request.data:
+
+            try:
+                product.price = int(
+                    request.data['price']
+                )
+
+            except (TypeError, ValueError):
+
+                return Response(
+                    {'message': 'Invalid price.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        if 'stock' in request.data:
+
+            try:
+                product.stock = int(
+                    request.data['stock']
+                )
+
+            except (TypeError, ValueError):
+
+                return Response(
+                    {'message': 'Invalid stock.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        if 'is_available' in request.data:
+
+            product.is_available = request.data[
+                'is_available'
+            ]
+
+        else:
+
+            product.is_available = product.stock > 0
+
+        # Category
+
+        if 'category_id' in request.data:
+
+            try:
+
+                category = Category.objects.get(
+                    id=request.data['category_id']
+                )
+
+                product.category = category
+
+            except Category.DoesNotExist:
+
+                return Response(
+                    {'message': 'Category not found.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Vendor
+
+        if 'vendor_id' in request.data:
+
+            try:
+
+                vendor = Account.objects.get(
+                    id=request.data['vendor_id'],
+                    is_vendor=True
+                )
+
+                if not vendor.vendorprofile.is_approved:
+
+                    return Response(
+                        {
+                            'message':
+                            'Vendor is not approved.'
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                product.vendor = vendor
+
+            except Account.DoesNotExist:
+
+                return Response(
+                    {'message': 'Vendor not found.'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            except VendorProfile.DoesNotExist:
+
+                return Response(
+                    {
+                        'message':
+                        'Vendor profile not found.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Main image
+
+        if 'images' in request.FILES:
+
+            product.images = request.FILES[
+                'images'
+            ]
+
+        product.save()
+
+        # =================================================
+        # REPLACE VARIATIONS IF SENT
+        # =================================================
+
+        if (
+            'colors' in request.data or
+            'sizes' in request.data
+        ):
+
+            Variation.objects.filter(
+                product=product
+            ).delete()
+
+            colors = request.data.get(
+                'colors',
+                ''
+            )
+
+            sizes = request.data.get(
+                'sizes',
+                ''
+            )
+
+            for color in colors.split(','):
+
+                color = color.strip()
+
+                if color:
+
+                    Variation.objects.create(
+                        product=product,
+                        variation_category='color',
+                        variation_value=color
+                    )
+
+            for size in sizes.split(','):
+
+                size = size.strip()
+
+                if size:
+
+                    Variation.objects.create(
+                        product=product,
+                        variation_category='size',
+                        variation_value=size
+                    )
+
+        # =================================================
+        # ADD NEW GALLERY IMAGES
+        # =================================================
+
+        gallery_images = request.FILES.getlist(
+            'gallery_images'
+        )
+
+        for image in gallery_images:
+
+            ProductGallery.objects.create(
+                product=product,
+                image=image
+            )
+
+        return Response({
+
+            'message':
+            'Product updated successfully.',
+
+            'product_id':
+            product.id
+        })
+
+
+    # =====================================================
+    # DELETE
+    # =====================================================
+
+    if request.method == 'DELETE':
+
+        product.delete()
+
+        return Response({
+
+            'message':
+            'Product deleted successfully.'
+        })

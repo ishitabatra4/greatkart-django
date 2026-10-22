@@ -9,6 +9,12 @@ class ProductSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    category_slug = serializers.SlugRelatedField(
+    source='category',
+    slug_field='slug',
+    read_only=True
+   )
+    
     vendor_name=serializers.CharField(
         source='vendor.username',
         read_only=True
@@ -28,6 +34,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'is_available',
             'category',
             'category_name',
+            'category_slug',
             'vendor',
             'vendor_name',
             'created_date',

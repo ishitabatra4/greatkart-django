@@ -1,7 +1,8 @@
+from django.http import request, response
 from django.shortcuts import render,redirect,get_object_or_404
 from accounts.forms import RegistrationForm,UserForm,UserProfileForm,VendorProfileForm
 from .models import Account,UserProfile,VendorProfile
-from orders.models import Order, OrderProduct
+from orders.models import Order, OrderProduct , VendorInvoice
 from django.contrib import messages,auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.sites.shortcuts import get_current_site
@@ -21,12 +22,28 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import status
+from django.db import transaction
+from django.urls import reverse
+from orders.invoice_utils import generate_vendor_invoices
+
+from django.db.models import Q
 
 from .serializers import RegisterSerializer,VendorProfileSerializer
-from .permissions import IsCustomer,IsVendor,IsApprovedVendor
+from .permissions import IsCustomer,IsVendor,IsApprovedVendor, IsAdminUser
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.utils.encoding import force_str
+
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
+
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.exceptions import InvalidToken
+from django.views.decorators.csrf import csrf_protect
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
+
 
 
 
@@ -161,7 +178,11 @@ def login(request):
 
             messages.success(request,'you are now logged in')
 
-            return redirect('home')
+            if user.is_vendor:
+                return redirect('vendor_orders')
+            else:
+                return redirect('home')
+
 
         else:
             messages.error(request,'invalid login credentials')
@@ -418,28 +439,30 @@ def change_password(request):
     return render(request, 'accounts/change_password.html')
 
 @login_required(login_url='login')
-def order_detail(request,order_id):
-
-    order=get_object_or_404(
+def order_detail(request, order_id):
+    order = get_object_or_404(
         Order,
-        order_number=order_id,
+        id=order_id,
         user=request.user,
         is_ordered=True
     )
 
-    order_detail=OrderProduct.objects.filter(
-        order=order
+    ordered_products = list(
+        OrderProduct.objects.filter(
+            order=order
+        ).select_related('product')
     )
 
-    subtotal=0
+    subtotal = 0
 
-    for i in order_detail:
-        subtotal+=i.product_price*i.quantity
+    for item in ordered_products:
+        item.line_total = item.product_price * item.quantity
+        subtotal += item.line_total
 
-    context={
-        'order_detail':order_detail,
-        'order':order,
-        'subtotal':subtotal,
+    context = {
+        'order': order,
+        'ordered_products': ordered_products,
+        'subtotal': subtotal,
     }
 
     return render(
@@ -447,7 +470,6 @@ def order_detail(request,order_id):
         'accounts/order_detail.html',
         context
     )
-
 
 @login_required(login_url='login')
 def vendor_orders(request):
@@ -499,6 +521,69 @@ def vendor_orders(request):
     }
 
     return render(request,'store/vendor_orders.html',context)
+
+
+@login_required(login_url='login')
+def vendor_invoice_detail(request, invoice_number):
+    # Only approved vendors can view vendor invoices.
+    if not request.user.is_vendor:
+        return redirect('home')
+
+    try:
+        vendor_profile = request.user.vendorprofile
+    except VendorProfile.DoesNotExist:
+        return redirect('vendor_orders')
+
+    if not vendor_profile.is_approved:
+        return redirect('vendor_orders')
+
+    invoice = get_object_or_404(
+        VendorInvoice.objects.select_related(
+            'order', 'vendor'
+        ),
+        invoice_number=invoice_number,
+        vendor=request.user,
+        order__is_ordered=True
+    )
+
+    invoice_items = invoice.items.filter(
+        product__vendor=request.user,
+        ordered=True
+    ).select_related(
+        'product'
+    ).prefetch_related(
+        'variations'
+    )
+
+    if not invoice_items.exists():
+        return redirect('vendor_orders')
+
+    # Build invoice lines using this vendor's products only.
+    items = []
+    for item in invoice_items:
+        items.append({
+            'product_name': item.product.product_name,
+            'quantity': item.quantity,
+            'unit_price': item.product_price,
+            'subtotal': item.product_price * item.quantity,
+            'color': item.color,
+            'size': item.size,
+        })
+
+    order = invoice.order
+
+    context = {
+        'invoice': invoice,
+        'order': order,
+        'vendor_profile': vendor_profile,
+        'items': items,
+    }
+
+    return render(
+        request,
+        'store/vendor_invoice.html',
+        context
+    )
 
 
 @api_view(['GET'])
@@ -593,6 +678,7 @@ def api_profile(request):
                 'city':userprofile.city,
                 'state':userprofile.state,
                 'country':userprofile.country,
+                'pincode': userprofile.pincode,
                 'profile_picture':(
                     userprofile.profile_picture.url
                     if userprofile.profile_picture
@@ -796,6 +882,7 @@ def api_my_orders(request):
     for order in orders:
 
         data.append({
+            'id': order.id,
             'order_number':order.order_number,
             'first_name':order.first_name,
             'last_name':order.last_name,
@@ -814,117 +901,205 @@ def api_my_orders(request):
     })
 
 @api_view(['GET'])
-@permission_classes([IsCustomer])
-def api_order_detail(request,order_number):
-
+@permission_classes([IsAuthenticated])
+def api_order_detail(request, order_number):
     try:
-
-        order=Order.objects.get(
-            order_number=order_number,
+        order = Order.objects.get(
+            Q(order_number=str(order_number)) | Q(id=order_number),
             user=request.user,
             is_ordered=True
         )
-
-    except Order.DoesNotExist:
-
+    except (Order.DoesNotExist, ValueError, TypeError):
         return Response(
-            {
-                'message':'Order not found.'
-            },
+            {'message': 'Order not found.'},
             status=status.HTTP_404_NOT_FOUND
         )
 
-
-    order_products=OrderProduct.objects.filter(
-        order=order
-    ).select_related(
-        'product'
+    order_products = (
+        OrderProduct.objects.filter(order=order)
+        .select_related('product', 'payment')
+        .prefetch_related('variations')
     )
 
-
-    items=[]
-
-    subtotal=0
-
+    items = []
+    subtotal = 0
 
     for item in order_products:
-
-        item_subtotal=item.product_price * item.quantity
-
-        subtotal+=item_subtotal
-
+        item_subtotal = item.product_price * item.quantity
+        subtotal += item_subtotal
 
         items.append({
-            'order_product_id':item.id,
-            'product_id':item.product.id,
-            'product_name':item.product.product_name,
-            'product_price':item.product_price,
-            'quantity':item.quantity,
-            'subtotal':item_subtotal,
-            'color':item.color,
-            'size':item.size,
-            'ordered':item.ordered,
+            'order_product_id': item.id,
+            'product_id': item.product.id,
+            'product_name': item.product.product_name,
+            'product_price': item.product_price,
+            'quantity': item.quantity,
+            'subtotal': item_subtotal,
+            'color': item.color,
+            'size': item.size,
+            'ordered': item.ordered,
+            'vendor_invoice_id': item.vendor_invoice_id,
         })
 
+    # Fetch invoices belonging to this customer's order only.
+    invoices_queryset = (
+        VendorInvoice.objects.filter(order=order)
+        .select_related('vendor')
+        .prefetch_related('items__product', 'items__variations')
+        .order_by('id')
+    )
+
+    vendor_invoices = []
+
+    for invoice in invoices_queryset:
+        vendor = invoice.vendor
+
+        if vendor:
+            vendor_name = (
+                f"{getattr(vendor, 'first_name', '')} "
+                f"{getattr(vendor, 'last_name', '')}"
+            ).strip()
+
+            if not vendor_name:
+                vendor_name = (
+                    getattr(vendor, 'username', None)
+                    or f"Vendor #{vendor.pk}"
+                )
+        else:
+            vendor_name = 'Platform / Unassigned'
+
+        invoice_items = []
+
+        for item in invoice.items.all():
+            invoice_items.append({
+                'order_product_id': item.id,
+                'product_id': item.product_id,
+                'product_name': item.product.product_name,
+                'product_price': item.product_price,
+                'quantity': item.quantity,
+                'subtotal': round(
+                    float(item.product_price) * item.quantity, 2
+                ),
+                'color': item.color,
+                'size': item.size,
+            })
+
+        vendor_invoices.append({
+            'id': invoice.id,
+            'invoice_number': invoice.invoice_number,
+            'vendor_id': invoice.vendor_id,
+            'vendor_name': vendor_name,
+            'subtotal': invoice.subtotal,
+            'tax': invoice.tax,
+            'total': invoice.total,
+            'status': invoice.status,
+            'created_at': invoice.created_at,
+            'items': invoice_items,
+        })
+
+    payment = order.payment
 
     return Response({
-
-        'order':{
-
-            'order_number':order.order_number,
-
-            'customer':{
-                'first_name':order.first_name,
-                'last_name':order.last_name,
-                'email':order.email,
-                'phone':order.phone,
+        'order': {
+            'id': order.id,
+            'order_number': order.order_number,
+            'customer': {
+                'first_name': order.first_name,
+                'last_name': order.last_name,
+                'email': order.email,
+                'phone': order.phone,
             },
-
-            'address':{
-                'address_line_1':order.address_line_1,
-                'address_line_2':order.address_line_2,
-                'city':order.city,
-                'state':order.state,
-                'country':order.country,
+            'address': {
+                'address_line_1': order.address_line_1,
+                'address_line_2': order.address_line_2,
+                'city': order.city,
+                'state': order.state,
+                'country': order.country,
             },
-
-            'order_total':order.order_total,
-            'tax':order.tax,
-            'subtotal':subtotal,
-            'status':order.status,
-            'is_ordered':order.is_ordered,
-            'created_at':order.created_at,
-
-            'items':items,
-
+            'order_total': order.order_total,
+            'tax': order.tax,
+            'subtotal': subtotal,
+            'status': order.status,
+            'is_ordered': order.is_ordered,
+            'created_at': order.created_at,
+            'payment': {
+                'payment_id': payment.payment_id,
+                'status': payment.status,
+                'payment_method': payment.payment_method,
+            } if payment else None,
+            'items': items,
+            'vendor_invoices': vendor_invoices,
         }
-
     })
+
+
+
 class RegisterAPIView(APIView):
+    permission_classes = [AllowAny]
 
-    def post(self,request):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
 
-        serializer=RegisterSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                serializer.errors,
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        if serializer.is_valid():
+        try:
+            with transaction.atomic():
+                user = serializer.save()
 
-            user=serializer.save()
+                current_site = get_current_site(request)
 
+                uid = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+
+                mail_subject = 'Please activate your account'
+
+                message = render_to_string(
+                    'accounts/account_verification_email.html',
+                    {
+                        'user': user,
+                        'domain': current_site.domain,
+                        'uid': uid,
+                        'token': token,
+                    }
+                )
+
+                email = EmailMessage(
+                    mail_subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email]
+                )
+                email.content_subtype = 'html'
+                email.send(fail_silently=False)
+
+        except Exception:
             return Response(
                 {
-                    'message':'Registration successful. Please activate your account.',
-                    'user_id':user.id,
-                    'email':user.email,
-                    'is_vendor':user.is_vendor
+                    'message': (
+                        'Registration could not be completed. '
+                        'Please try again.'
+                    )
                 },
-                status=status.HTTP_201_CREATED
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
         return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST
+            {
+                'message': (
+                    'Registration successful. '
+                    'Please check your email to activate your account.'
+                ),
+                'email': user.email,
+                'is_vendor': user.is_vendor,
+            },
+            status=status.HTTP_201_CREATED
         )
-    
+
+
 @api_view(['GET','PATCH'])
 @permission_classes([IsVendor])
 def api_vendor_profile(request):
@@ -986,17 +1161,27 @@ def api_forgot_password(request):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    uid=urlsafe_base64_encode(
+   
+    uid = urlsafe_base64_encode(
         force_bytes(user.pk)
     )
 
-    token=default_token_generator.make_token(user)
+    token = default_token_generator.make_token(user)
 
-    reset_url=(
-        f'http://127.0.0.1:8000'
-        f'/accounts/reset-password/'
-        f'?uid={uid}&token={token}'
+    from django.urls import reverse
+    from django.utils.http import urlencode
+
+    reset_path = reverse('reset_password')
+
+    query_string = urlencode({
+        'uid': uid,
+        'token': token,
+    })
+
+    reset_url = request.build_absolute_uri(
+        f'{reset_path}?{query_string}'
     )
+
 
     mail_subject='Reset your password'
 
@@ -1108,40 +1293,36 @@ def reset_password(request):
         'accounts/reset_password.html'
     )
 
+
 @api_view(['GET'])
 @permission_classes([IsApprovedVendor])
 def api_vendor_orders(request):
-
     order_products = OrderProduct.objects.filter(
         product__vendor=request.user,
-        order__is_ordered=True
+        order__is_ordered=True,
+        ordered=True
     ).select_related(
-        'order',
-        'product',
-        'user',
-        'payment'
+        'order', 'product', 'vendor_invoice'
     ).order_by('-created_at')
 
     orders = {}
 
     for item in order_products:
-
         order = item.order
         order_number = order.order_number
 
         if order_number not in orders:
+            invoice = item.vendor_invoice
 
             orders[order_number] = {
-                'order_number': order.order_number,
-
+                'order_number': order_number,
                 'customer': {
-                    'id': order.user.id,
+                    'id': order.user_id,
                     'first_name': order.first_name,
                     'last_name': order.last_name,
                     'email': order.email,
                     'phone': order.phone,
                 },
-
                 'shipping_address': {
                     'address_line_1': order.address_line_1,
                     'address_line_2': order.address_line_2,
@@ -1149,132 +1330,919 @@ def api_vendor_orders(request):
                     'state': order.state,
                     'country': order.country,
                 },
-
-                'order_total': order.order_total,
-                'tax': order.tax,
-                'status': order.status,
+                'order_total': float(order.order_total or 0),
+                'tax': float(order.tax or 0),
+                'status': invoice.status if invoice else order.status,
+                'invoice_number': invoice.invoice_number if invoice else None,
+                'invoice_subtotal': float(invoice.subtotal) if invoice else 0,
+                'invoice_tax': float(invoice.tax) if invoice else 0,
+                'invoice_total': float(invoice.total) if invoice else 0,
+                'invoice_url': (
+                    reverse(
+                        'vendor_invoice_detail',
+                        kwargs={'invoice_number': invoice.invoice_number}
+                    )
+                    if invoice else None
+                ),
                 'is_ordered': order.is_ordered,
                 'created_at': order.created_at,
-
-                'items': []
+                'items': [],
             }
 
         orders[order_number]['items'].append({
-
             'order_product_id': item.id,
-
-            'product_id': item.product.id,
+            'product_id': item.product_id,
             'product_name': item.product.product_name,
-
-            'product_price': item.product_price,
+            'product_price': float(item.product_price),
             'quantity': item.quantity,
-
             'color': item.color,
             'size': item.size,
-
             'subtotal': float(item.product_price * item.quantity),
-
             'ordered': item.ordered,
         })
 
     return Response({
         'count': len(orders),
-        'orders': list(orders.values())
+        'orders': list(orders.values()),
     })
+
+
 
 @api_view(['GET'])
 @permission_classes([IsApprovedVendor])
 def api_vendor_order_detail(request, order_number):
-
-    # -------------------------------------------------
-    # FIND ONLY THIS VENDOR'S ORDER ITEMS
-    # -------------------------------------------------
-
     order_items = OrderProduct.objects.filter(
         order__order_number=order_number,
         order__is_ordered=True,
+        ordered=True,
         product__vendor=request.user
     ).select_related(
-        'order',
-        'product',
-        'user'
-    )
-
-
-    # -------------------------------------------------
-    # ORDER DOES NOT BELONG TO THIS VENDOR
-    # -------------------------------------------------
+        'order', 'product', 'vendor_invoice'
+    ).prefetch_related('variations')
 
     if not order_items.exists():
-
         return Response(
-            {
-                'message': 'Order not found.'
-            },
+            {'message': 'Order not found.'},
             status=status.HTTP_404_NOT_FOUND
         )
 
-
-    # -------------------------------------------------
-    # GET ORDER
-    # -------------------------------------------------
-
     order = order_items.first().order
 
+    # Fetch only this vendor's invoice.
+    invoice = VendorInvoice.objects.filter(
+        order=order,
+        vendor=request.user
+    ).first()
 
-    # -------------------------------------------------
-    # CALCULATE VENDOR SUBTOTAL
-    # -------------------------------------------------
-
-    subtotal = 0
+    # Repair invoice linkage if an invoice is missing.
+    if invoice is None:
+        generate_vendor_invoices(order)
+        invoice = VendorInvoice.objects.filter(
+            order=order,
+            vendor=request.user
+        ).first()
 
     items = []
 
     for item in order_items:
-
-        item_subtotal = (
-            item.product_price * item.quantity
-        )
-
-        subtotal += item_subtotal
-
         items.append({
-
             'order_product_id': item.id,
-
             'product': {
-                'id': item.product.id,
+                'id': item.product_id,
                 'name': item.product.product_name,
                 'price': float(item.product_price),
             },
-
             'quantity': item.quantity,
-
             'color': item.color,
-
             'size': item.size,
-
-            'subtotal': float(item_subtotal),
-
+            'subtotal': float(item.product_price * item.quantity),
             'ordered': item.ordered,
-
             'created_at': item.created_at,
         })
 
+    return Response({
+        'order': {
+            'order_number': order.order_number,
+            'customer': {
+                'id': order.user_id,
+                'first_name': order.first_name,
+                'last_name': order.last_name,
+                'email': order.email,
+                'phone': order.phone,
+            },
+            'shipping_address': {
+                'address_line_1': order.address_line_1,
+                'address_line_2': order.address_line_2,
+                'city': order.city,
+                'state': order.state,
+                'country': order.country,
+            },
+            'order_total': float(order.order_total or 0),
+            'tax': float(order.tax or 0),
+            'vendor_subtotal': float(invoice.subtotal) if invoice else 0,
+            'invoice': {
+                'invoice_number': invoice.invoice_number,
+                'subtotal': float(invoice.subtotal),
+                'tax': float(invoice.tax),
+                'total': float(invoice.total),
+                'status': invoice.status,
+                'url': reverse(
+                    'vendor_invoice_detail',
+                    kwargs={'invoice_number': invoice.invoice_number}
+                ),
+            } if invoice else None,
+            'status': invoice.status if invoice else order.status,
+            'order_status': order.status,
+            'is_ordered': order.is_ordered,
+            'created_at': order.created_at,
+            'items': items,
+        }
+    })
 
-    # -------------------------------------------------
-    # RESPONSE
-    # -------------------------------------------------
+
+
+@api_view(['PATCH'])
+@permission_classes([IsApprovedVendor])
+def api_vendor_update_order_status(request, order_number):
+    current_user = request.user
+
+    try:
+        order = Order.objects.get(
+            order_number=order_number,
+            is_ordered=True
+        )
+    except Order.DoesNotExist:
+        return Response(
+            {'message': 'Order not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Find only this vendor's invoice for this order.
+    invoice = VendorInvoice.objects.filter(
+        order=order,
+        vendor=current_user
+    ).first()
+
+    if invoice is None:
+        # Check whether the vendor actually has items in this order.
+        vendor_items = OrderProduct.objects.filter(
+            order=order,
+            product__vendor=current_user,
+            ordered=True
+        )
+
+        if not vendor_items.exists():
+            return Response(
+                {'message': 'You are not authorized to update this order.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Create/link invoices if this order has not been invoiced yet.
+        generate_vendor_invoices(order)
+
+        invoice = VendorInvoice.objects.filter(
+            order=order,
+            vendor=current_user
+        ).first()
+
+    if invoice is None:
+        return Response(
+            {'message': 'Vendor invoice could not be found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    new_status = request.data.get('status')
+
+    allowed_statuses = ['Accepted', 'Completed', 'Cancelled']
+
+    if new_status not in allowed_statuses:
+        return Response(
+            {
+                'message': (
+                    'Invalid status. Choose from '
+                    'Accepted, Completed or Cancelled.'
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    current_status = invoice.status
+
+    allowed_transitions = {
+        'New': ['Accepted', 'Cancelled'],
+        'Accepted': ['Completed', 'Cancelled'],
+        'Completed': [],
+        'Cancelled': [],
+    }
+
+    if new_status not in allowed_transitions.get(current_status, []):
+        return Response(
+            {
+                'message': (
+                    f'Invoice cannot be changed from '
+                    f'{current_status} to {new_status}.'
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # Update only this vendor's invoice.
+    invoice.status = new_status
+    invoice.save(update_fields=['status', 'updated_at'])
+
+    # Deliberately do not update order.status here.
+    return Response(
+        {
+            'message': 'Vendor invoice status updated successfully.',
+            'order': {
+                'order_number': order.order_number,
+                'status': invoice.status,
+                'order_status': order.status,
+                'is_ordered': order.is_ordered,
+                'invoice_number': invoice.invoice_number,
+            }
+        },
+        status=status.HTTP_200_OK
+    )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_cancel_order(request, order_number):
+
+    current_user = request.user
+
+    # Only customers can cancel orders
+    if current_user.is_vendor:
+        return Response(
+            {'message': 'Only customers can cancel orders.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    try:
+        order = Order.objects.get(
+            order_number=order_number,
+            user=current_user,
+            is_ordered=True
+        )
+    except Order.DoesNotExist:
+        return Response(
+            {'message': 'Order not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    # Allowed cancellation statuses
+    if order.status not in ['New', 'Accepted']:
+        return Response(
+            {
+                'message': f'Order cannot be cancelled because its current status is {order.status}.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    with transaction.atomic():
+
+        # Lock order so two cancellation requests cannot happen together
+        order = Order.objects.select_for_update().get(
+            id=order.id
+        )
+
+        # Re-check status after acquiring lock
+        if order.status not in ['New', 'Accepted']:
+            return Response(
+                {
+                    'message': f'Order cannot be cancelled because its current status is {order.status}.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get all products belonging to this order
+        order_products = OrderProduct.objects.filter(
+            order=order
+        ).select_related('product')
+
+        for order_product in order_products:
+
+            # Lock product row before changing stock
+            product = Product.objects.select_for_update().get(
+                id=order_product.product.id
+            )
+
+            # Restore stock
+            product.stock += order_product.quantity
+
+            # Product becomes available again
+            if product.stock > 0:
+                product.is_available = True
+
+            product.save()
+
+        # Cancel order
+        order.status = 'Cancelled'
+        order.save(update_fields=['status', 'updated_at'])
+
+    return Response(
+        {
+            'message': 'Order cancelled successfully.',
+            'order': {
+                'order_number': order.order_number,
+                'status': order.status,
+                'is_ordered': order.is_ordered
+            }
+        },
+        status=status.HTTP_200_OK
+    )
+
+# =========================================================
+# ADMIN JWT APIs
+# =========================================================
+@api_view(['GET','PATCH','DELETE'])
+@permission_classes([IsAdminUser])
+def api_admin_user_detail(request,user_id):
+
+    try:
+        user=Account.objects.get(id=user_id)
+    except Account.DoesNotExist:
+        return Response(
+            {'message':'User not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if request.method == 'GET':
+
+        return Response({
+
+            'id':user.id,
+
+            'first_name':user.first_name,
+
+            'last_name':user.last_name,
+
+            'username':user.username,
+
+            'email':user.email,
+
+            'phone_number':user.phone_number,
+
+            'is_active':user.is_active,
+
+            'is_vendor':user.is_vendor,
+
+            'is_admin':user.is_admin,
+
+            'date_joined':user.date_joined,
+
+        })
+
+    if request.method == 'PATCH':
+
+        if 'first_name' in request.data:
+            user.first_name=request.data['first_name']
+
+        if 'last_name' in request.data:
+            user.last_name=request.data['last_name']
+
+        if 'username' in request.data:
+            user.username=request.data['username']
+
+        if 'email' in request.data:
+            user.email=request.data['email']
+
+        if 'phone_number' in request.data:
+            user.phone_number=request.data['phone_number']
+
+        if 'is_active' in request.data:
+            user.is_active=request.data['is_active']
+
+        if 'is_vendor' in request.data:
+            user.is_vendor=request.data['is_vendor']
+
+        if 'is_admin' in request.data:
+            user.is_admin=request.data['is_admin']
+
+        user.save()
+
+        return Response({
+
+            'message':'User updated successfully.',
+
+            'user':{
+
+                'id':user.id,
+
+                'first_name':user.first_name,
+
+                'last_name':user.last_name,
+
+                'username':user.username,
+
+                'email':user.email,
+
+                'phone_number':user.phone_number,
+
+                'is_active':user.is_active,
+
+                'is_vendor':user.is_vendor,
+
+                'is_admin':user.is_admin,
+
+            }
+
+        })
+
+    if request.method == 'DELETE':
+
+        if user.id == request.user.id:
+
+            return Response(
+                {'message':'Admin cannot delete their own account.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.delete()
+
+        return Response({
+            'message':'User deleted successfully.'
+        })
+
+
+@api_view(['GET','PATCH','DELETE'])
+@permission_classes([IsAdminUser])
+def api_admin_vendor_detail(request,vendor_id):
+
+    try:
+        vendor=VendorProfile.objects.select_related(
+            'user'
+        ).get(
+            user_id=vendor_id
+        )
+
+    except VendorProfile.DoesNotExist:
+
+        return Response(
+            {'message':'Vendor not found.'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    user=vendor.user
+
+    if request.method == 'GET':
+
+        return Response({
+
+            'vendor_id':user.id,
+
+            'account':{
+
+                'first_name':user.first_name,
+
+                'last_name':user.last_name,
+
+                'username':user.username,
+
+                'email':user.email,
+
+                'phone_number':user.phone_number,
+
+                'is_active':user.is_active,
+
+                'is_vendor':user.is_vendor,
+
+                'is_admin':user.is_admin,
+
+                'date_joined':user.date_joined,
+
+            },
+
+            'vendor_profile':{
+
+                'gstin':vendor.gstin,
+
+                'store_name':vendor.store_name,
+
+                'business_type':vendor.business_type,
+
+                'pan':vendor.pan,
+
+                'address_line_1':vendor.address_line_1,
+
+                'address_line_2':vendor.address_line_2,
+
+                'city':vendor.city,
+
+                'state':vendor.state,
+
+                'pincode':vendor.pincode,
+
+                'account_holder_name':vendor.account_holder_name,
+
+                'account_number':vendor.account_number,
+
+                'ifsc_code':vendor.ifsc_code,
+
+                'bank_name':vendor.bank_name,
+
+                'shipping_method':vendor.shipping_method,
+
+                'shipping_charges':vendor.shipping_charges,
+
+                'return_policy':vendor.return_policy,
+
+                'is_approved':vendor.is_approved,
+
+                'created_at':vendor.created_at,
+
+            }
+
+        })
+
+    if request.method == 'PATCH':
+
+        account_fields=[
+
+            'first_name',
+
+            'last_name',
+
+            'username',
+
+            'email',
+
+            'phone_number',
+
+            'is_active',
+
+        ]
+
+        vendor_fields=[
+
+            'gstin',
+
+            'store_name',
+
+            'business_type',
+
+            'pan',
+
+            'address_line_1',
+
+            'address_line_2',
+
+            'city',
+
+            'state',
+
+            'pincode',
+
+            'account_holder_name',
+
+            'account_number',
+
+            'ifsc_code',
+
+            'bank_name',
+
+            'shipping_method',
+
+            'shipping_charges',
+
+            'return_policy',
+
+        ]
+
+        for field in account_fields:
+
+            if field in request.data:
+
+                setattr(
+                    user,
+                    field,
+                    request.data.get(field)
+                )
+
+        for field in vendor_fields:
+
+            if field in request.data:
+
+                setattr(
+                    vendor,
+                    field,
+                    request.data.get(field)
+                )
+
+        user.save()
+
+        vendor.save()
+
+        return Response({
+
+            'message':'Vendor updated successfully.',
+
+            'vendor_id':user.id,
+
+            'is_approved':vendor.is_approved,
+
+        })
+
+    if request.method == 'DELETE':
+
+        if user.id == request.user.id:
+
+            return Response(
+                {
+                    'message':'Admin cannot delete their own account.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.delete()
+
+        return Response({
+
+            'message':'Vendor deleted successfully.'
+
+        })
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def api_admin_vendors(request):
+
+    status_filter = request.GET.get('status')
+
+    vendors = VendorProfile.objects.select_related(
+        'user'
+    ).order_by('-created_at')
+
+    # Pending vendors only
+    if status_filter == 'pending':
+        vendors = vendors.filter(is_approved=False)
+
+    data = []
+
+    for vendor in vendors:
+
+        data.append({
+            'vendor_id': vendor.user.id,
+
+            'name': (
+                vendor.user.first_name
+                + ' '
+                + vendor.user.last_name
+            ).strip(),
+
+            'email': vendor.user.email,
+
+            'phone': vendor.user.phone_number,
+
+            'is_vendor': vendor.user.is_vendor,
+
+            'is_active': vendor.user.is_active,
+
+            'is_approved': vendor.is_approved,
+
+            'store_name': vendor.store_name,
+
+            'gstin': vendor.gstin,
+
+            'city': vendor.city,
+
+            'state': vendor.state,
+
+            'created_at': vendor.created_at,
+        })
+
+    return Response({
+        'count': len(data),
+        'vendors': data
+    })
+
+@api_view(['PATCH'])
+@permission_classes([IsAdminUser])
+def api_admin_vendor_approval(request, vendor_id):
+
+    try:
+
+        vendor = VendorProfile.objects.select_related(
+            'user'
+        ).get(
+            user_id=vendor_id
+        )
+
+    except VendorProfile.DoesNotExist:
+
+        return Response(
+            {
+                'message': 'Vendor not found.'
+            },
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    is_approved = request.data.get('is_approved')
+
+    if is_approved is None:
+
+        return Response(
+            {
+                'message': 'is_approved is required.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not isinstance(is_approved, bool):
+
+        return Response(
+            {
+                'message': 'is_approved must be true or false.'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    vendor.is_approved = is_approved
+    vendor.save()
 
     return Response({
 
-        'order': {
+        'message': (
+            'Vendor approved successfully.'
+            if is_approved
+            else 'Vendor rejected successfully.'
+        ),
+
+        'vendor': {
+            'id': vendor.user.id,
+            'email': vendor.user.email,
+            'is_approved': vendor.is_approved,
+        }
+
+    })
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminUser])
+def api_admin_users(request):
+
+    # =========================
+    # GET ALL USERS
+    # =========================
+    if request.method == 'GET':
+
+        users = Account.objects.all().order_by('-date_joined')
+
+        data = []
+
+        for user in users:
+            data.append({
+                'id': user.id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'username': user.username,
+                'email': user.email,
+                'phone_number': user.phone_number,
+                'is_active': user.is_active,
+                'is_vendor': user.is_vendor,
+                'is_admin': user.is_admin,
+                'date_joined': user.date_joined,
+            })
+
+        return Response({
+            'count': len(data),
+            'users': data
+        })
+
+
+    # =========================
+    # CREATE USER
+    # =========================
+    if request.method == 'POST':
+
+        first_name = request.data.get('first_name', '').strip()
+        last_name = request.data.get('last_name', '').strip()
+        username = request.data.get('username', '').strip()
+        email = request.data.get('email', '').strip()
+        phone_number = request.data.get('phone_number', '').strip()
+        password = request.data.get('password')
+
+        is_vendor = request.data.get('is_vendor', False)
+
+        # Required fields
+        if not username or not email or not password:
+            return Response({
+                'message': 'Username, email and password are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Duplicate username
+        if Account.objects.filter(username=username).exists():
+            return Response({
+                'message': 'Username already exists.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Duplicate email
+        if Account.objects.filter(email=email).exists():
+            return Response({
+                'message': 'Email already exists.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create account
+        user = Account(
+            first_name=first_name,
+            last_name=last_name,
+            username=username,
+            email=email,
+            phone_number=phone_number,
+            is_vendor=is_vendor,
+            is_active=True,
+            is_admin=False
+        )
+
+        # IMPORTANT: hash password
+        user.set_password(password)
+
+        user.save()
+
+        # If admin creates vendor, create VendorProfile
+        if is_vendor:
+            VendorProfile.objects.create(
+                user=user
+            )
+
+        return Response({
+            'message': 'User created successfully.',
+            'user': {
+                'id': user.id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'username': user.username,
+                'email': user.email,
+                'phone_number': user.phone_number,
+                'is_active': user.is_active,
+                'is_vendor': user.is_vendor,
+                'is_admin': user.is_admin,
+                'date_joined': user.date_joined,
+            }
+        }, status=status.HTTP_201_CREATED)
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def api_admin_orders(request):
+
+    orders = Order.objects.filter(
+        is_ordered=True
+    ).select_related(
+        'user',
+        'payment'
+    ).order_by('-created_at')
+
+    data = []
+
+    for order in orders:
+
+        items = OrderProduct.objects.filter(
+            order=order
+        ).select_related(
+            'product',
+            'user'
+        )
+
+        order_items = []
+
+        for item in items:
+
+            order_items.append({
+
+                'order_product_id': item.id,
+
+                'product_id': item.product.id,
+
+                'product_name': item.product.product_name,
+
+                'vendor_id': item.product.vendor.id
+                if item.product.vendor
+                else None,
+
+                'quantity': item.quantity,
+
+                'product_price': item.product_price,
+
+                'subtotal': (
+                    item.product_price
+                    * item.quantity
+                ),
+
+                'color': item.color,
+
+                'size': item.size,
+
+                'ordered': item.ordered,
+
+            })
+
+        data.append({
 
             'order_number': order.order_number,
 
             'customer': {
 
-                'id': order.user.id,
+                'id': order.user.id
+                if order.user
+                else None,
 
                 'first_name': order.first_name,
 
@@ -1283,8 +2251,8 @@ def api_vendor_order_detail(request, order_number):
                 'email': order.email,
 
                 'phone': order.phone,
-            },
 
+            },
 
             'shipping_address': {
 
@@ -1297,14 +2265,12 @@ def api_vendor_order_detail(request, order_number):
                 'state': order.state,
 
                 'country': order.country,
+
             },
 
+            'order_total': order.order_total,
 
-            'order_total': float(order.order_total),
-
-            'tax': float(order.tax),
-
-            'vendor_subtotal': float(subtotal),
+            'tax': order.tax,
 
             'status': order.status,
 
@@ -1312,7 +2278,251 @@ def api_vendor_order_detail(request, order_number):
 
             'created_at': order.created_at,
 
-            'items': items,
-        }
+            'items': order_items,
+
+        })
+
+    return Response({
+
+        'count': len(data),
+
+        'orders': data
 
     })
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def api_admin_products(request):
+
+    products = Product.objects.select_related(
+        'vendor',
+        'category'
+    ).order_by('-created_date')
+
+    data = []
+
+    for product in products:
+
+        data.append({
+
+            'id': product.id,
+
+            'product_name': product.product_name,
+
+            'slug': product.slug,
+
+            'price': product.price,
+
+            'stock': product.stock,
+
+            'is_available': product.is_available,
+
+            'category': {
+
+                'id': product.category.id
+                if product.category
+                else None,
+
+                'name': product.category.category_name
+                if product.category
+                else None,
+
+            },
+
+            'vendor': {
+
+                'id': product.vendor.id
+                if product.vendor
+                else None,
+
+                'email': product.vendor.email
+                if product.vendor
+                else None,
+
+            },
+
+            'created_date': product.created_date,
+
+        })
+
+    return Response({
+
+        'count': len(data),
+
+        'products': data
+
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def api_admin_dashboard(request):
+
+    total_users=Account.objects.count()
+
+    total_customers=Account.objects.filter(
+        is_vendor=False,
+        is_admin=False
+    ).count()
+
+    total_vendors=Account.objects.filter(
+        is_vendor=True
+    ).count()
+
+    pending_vendors=VendorProfile.objects.filter(
+        is_approved=False
+    ).count()
+
+    approved_vendors=VendorProfile.objects.filter(
+        is_approved=True
+    ).count()
+
+    total_products=Product.objects.count()
+
+    total_orders=Order.objects.filter(
+        is_ordered=True
+    ).count()
+
+    pending_orders=Order.objects.filter(
+        is_ordered=True,
+        status='New'
+    ).count()
+
+    completed_orders=Order.objects.filter(
+        is_ordered=True,
+        status='Completed'
+    ).count()
+
+    cancelled_orders=Order.objects.filter(
+        is_ordered=True,
+        status='Cancelled'
+    ).count()
+
+    total_sales=Order.objects.filter(
+        is_ordered=True
+    ).aggregate(
+        total=Sum('order_total')
+    )['total'] or 0
+
+    return Response({
+
+        'users':total_users,
+
+        'customers':total_customers,
+
+        'vendors':total_vendors,
+
+        'approved_vendors':approved_vendors,
+
+        'pending_vendors':pending_vendors,
+
+        'products':total_products,
+
+        'orders':total_orders,
+
+        'pending_orders':pending_orders,
+
+        'completed_orders':completed_orders,
+
+        'cancelled_orders':cancelled_orders,
+
+        'total_sales':total_sales,
+
+    })
+
+@method_decorator(csrf_protect, name='dispatch')
+class CookieTokenObtainPairView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = TokenObtainPairSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        access_token = serializer.validated_data['access']
+        refresh_token = serializer.validated_data['refresh']
+
+        response = Response({
+            'access': str(access_token),
+        })
+
+        response.set_cookie(
+            key='refresh_token',
+            value=str(refresh_token),
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite='Lax',
+            max_age=7 * 24 * 60 * 60,
+            path='/accounts/api/',
+        )
+        print("JWT LOGIN — refresh cookie set:", response.cookies.get("refresh_token"))
+        print("JWT LOGIN — cookie path:", response.cookies["refresh_token"]["path"])
+
+        return response
+
+@method_decorator(csrf_protect, name='dispatch')
+class CookieTokenRefreshView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get('refresh_token')
+        print("JWT REFRESH — received cookie:", bool(refresh_token))
+        print("JWT REFRESH — request cookies:", list(request.COOKIES.keys()))
+
+        if not refresh_token:
+            return Response(
+                {'detail': 'Refresh token missing. Please log in again.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        serializer = TokenRefreshSerializer(
+            data={'refresh': refresh_token}
+        )
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            response = Response(
+                {'detail': 'Session expired. Please log in again.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            response.delete_cookie('refresh_token', path='/accounts/api/')
+            return response
+
+        data = serializer.validated_data
+        response = Response({'access': data['access']})
+
+        if 'refresh' in data:
+            response.set_cookie(
+                key='refresh_token',
+                value=data['refresh'],
+                httponly=True,
+                secure=not settings.DEBUG,
+                samesite='Lax',
+                max_age=7 * 24 * 60 * 60,
+                path='/accounts/api/',
+            )
+
+        return response
+
+@method_decorator(csrf_protect, name='dispatch')
+class CookieTokenLogoutView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get('refresh_token')
+
+        if refresh_token:
+            try:
+                RefreshToken(refresh_token).blacklist()
+            except TokenError:
+                pass
+
+        response = Response({'detail': 'Logged out successfully.'})
+        response.delete_cookie('refresh_token', path='/accounts/api/')
+        return response
+
+
+@ensure_csrf_cookie
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def api_csrf(request):
+    return Response({'detail': 'CSRF cookie set.'})

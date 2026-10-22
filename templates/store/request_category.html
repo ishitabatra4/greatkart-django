@@ -3,34 +3,128 @@
 {% block content %}
 
 <section class="section-content padding-y">
-<div class="card mx-auto" style="max-width:520px; margin-top:40px;">
-<article class="card-body">
+    <div class="card mx-auto" style="max-width:520px; margin-top:40px;">
+        <article class="card-body">
 
-<h4 class="card-title mb-4">Request New Category</h4>
+            <h4 class="card-title mb-4">Request New Category</h4>
 
-{% include 'includes/alerts.html' %}
+            <div id="category-alert" class="alert d-none" role="alert"></div>
 
-<form method="POST">
-{% csrf_token %}
+            <form id="category-request-form">
+                {% csrf_token %}
 
-<div class="form-group">
-<label>Category Name</label>
-<input type="text" name="category_name" class="form-control" placeholder="Enter category name" required>
-</div>
+                <div class="form-group">
+                    <label for="category_name">Category Name</label>
+                    <input
+                        type="text"
+                        id="category_name"
+                        name="category_name"
+                        class="form-control"
+                        placeholder="Enter category name"
+                        required
+                    >
+                </div>
 
-<div class="form-group">
-<label>Description</label>
-<textarea name="description" class="form-control" rows="4" placeholder="Describe this category"></textarea>
-</div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea
+                        id="description"
+                        name="description"
+                        class="form-control"
+                        rows="4"
+                        placeholder="Describe this category"
+                    ></textarea>
+                </div>
 
-<button type="submit" class="btn btn-primary btn-block">
-Submit for Approval
-</button>
+                <button
+                    type="submit"
+                    id="category-submit-btn"
+                    class="btn btn-primary btn-block"
+                >
+                    Create Category
+                </button>
+            </form>
 
-</form>
-
-</article>
-</div>
+        </article>
+    </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+    const form = document.getElementById('category-request-form');
+    const alertBox = document.getElementById('category-alert');
+    const submitBtn = document.getElementById('category-submit-btn');
+
+    function showMessage(message, type) {
+        alertBox.textContent = message;
+        alertBox.className = `alert alert-${type}`;
+    }
+
+    try {
+        await window.API.ready;
+    } catch (error) {
+        showMessage('Authentication initialization failed. Please refresh the page.', 'danger');
+        return;
+    }
+
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        const categoryName = document.getElementById('category_name').value.trim();
+        const description = document.getElementById('description').value.trim();
+
+        if (!categoryName) {
+            showMessage('Please enter a category name.', 'warning');
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        alertBox.className = 'alert d-none';
+
+        try {
+            const response = await window.API.fetch(
+                '/category/api/vendor/request-category/',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        category_name: categoryName,
+                        description: description
+                    })
+                }
+            );
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const message =
+                    data.detail ||
+                    data.message ||
+                    data.error ||
+                    Object.values(data).flat().join(' ') ||
+                    'Unable to submit category request.';
+
+                throw new Error(message);
+            }
+
+            showMessage(
+                data.message || 'Category request submitted successfully!',
+                'success'
+            );
+
+            form.reset();
+
+        } catch (error) {
+            showMessage(error.message || 'Something went wrong.', 'danger');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Create Category';
+        }
+    });
+});
+</script>
 
 {% endblock %}

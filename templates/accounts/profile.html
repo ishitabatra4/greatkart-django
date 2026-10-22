@@ -1,261 +1,349 @@
+
 {% extends 'base.html' %}
 
 {% block content %}
 
 <section class="section-content padding-y">
-
     <div class="container">
-
         <div class="row">
-
             <div class="col-lg-8 mx-auto">
-
                 <div class="card">
-
                     <div class="card-body">
 
-                        <h3 class="mb-4">
-                            Profile
-                        </h3>
+                        <h3 class="mb-4">Profile</h3>
 
+                        <div id="profile-loading">
+                            Loading profile...
+                        </div>
 
-                        <!-- Personal Information -->
+                        <div id="profile-error" class="alert alert-danger"
+                             role="alert" hidden></div>
 
-                        <h5>
-                            Personal Information
-                        </h5>
+                        <div id="profile-content" hidden>
 
-                        <hr>
+                            <h5>Personal Information</h5>
+                            <hr>
 
-                        <p>
-                            <strong>First name:</strong>
-                            {{ request.user.first_name }}
-                        </p>
+                            <p><strong>First name:</strong>
+                                <span id="profile-first-name">—</span>
+                            </p>
 
-                        <p>
-                            <strong>Last name:</strong>
-                            {{ request.user.last_name }}
-                        </p>
+                            <p><strong>Last name:</strong>
+                                <span id="profile-last-name">—</span>
+                            </p>
 
-                        <p>
-                            <strong>Username:</strong>
-                            {{ request.user.username }}
-                        </p>
+                            <p><strong>Username:</strong>
+                                <span id="profile-username">—</span>
+                            </p>
 
+                            <hr>
+                            <h5>Contact Information</h5>
+                            <hr>
 
-                        <!-- Contact Information -->
+                            <p><strong>Email:</strong>
+                                <span id="profile-email">—</span>
+                            </p>
 
-                        <hr>
+                            <p><strong>Phone number:</strong>
+                                <span id="profile-phone">—</span>
+                            </p>
 
-                        <h5>
-                            Contact Information
-                        </h5>
+                            <div id="vendor-information" hidden>
 
-                        <hr>
+                                <hr>
+                                <h5>Vendor Information</h5>
+                                <hr>
 
-                        <p>
-                            <strong>Email:</strong>
-                            {{ request.user.email }}
-                        </p>
+                                <p><strong>GSTIN:</strong>
+                                    <span id="vendor-gstin">—</span>
+                                </p>
 
-                        <p>
-                            <strong>Phone number:</strong>
-                            {{ request.user.phone_number }}
-                        </p>
+                                <p><strong>Store name:</strong>
+                                    <span id="vendor-store-name">—</span>
+                                </p>
 
+                                <p><strong>Business type:</strong>
+                                    <span id="vendor-business-type">—</span>
+                                </p>
 
-                        {% if request.user.is_vendor and vendor_profile %}
+                                <p><strong>PAN:</strong>
+                                    <span id="vendor-pan">—</span>
+                                </p>
 
-                            <!-- Vendor Information -->
+                                <hr>
+                                <h5>Business Address</h5>
+                                <hr>
+
+                                <p><strong>Address line 1:</strong>
+                                    <span id="vendor-address-line-1">—</span>
+                                </p>
+
+                                <p><strong>Address line 2:</strong>
+                                    <span id="vendor-address-line-2">—</span>
+                                </p>
+
+                                <p><strong>City:</strong>
+                                    <span id="vendor-city">—</span>
+                                </p>
+
+                                <p><strong>State:</strong>
+                                    <span id="vendor-state">—</span>
+                                </p>
+
+                                <p><strong>Pincode:</strong>
+                                    <span id="vendor-pincode">—</span>
+                                </p>
+
+                                <hr>
+                                <h5>Bank Details</h5>
+                                <hr>
+
+                                <p><strong>Account holder name:</strong>
+                                    <span id="vendor-account-holder">—</span>
+                                </p>
+
+                                <p><strong>Account number:</strong>
+                                    <span id="vendor-account-number">—</span>
+                                </p>
+
+                                <p><strong>IFSC code:</strong>
+                                    <span id="vendor-ifsc">—</span>
+                                </p>
+
+                                <p><strong>Bank name:</strong>
+                                    <span id="vendor-bank-name">—</span>
+                                </p>
+
+                                <hr>
+                                <h5>Shipping Details</h5>
+                                <hr>
+
+                                <p><strong>Shipping method:</strong>
+                                    <span id="vendor-shipping-method">—</span>
+                                </p>
+
+                                <p><strong>Shipping charges:</strong>
+                                    <span id="vendor-shipping-charges">—</span>
+                                </p>
+
+                                <p><strong>Return policy:</strong>
+                                    <span id="vendor-return-policy">—</span>
+                                </p>
+                            </div>
+
+                            <div id="customer-address" hidden>
+                                <hr>
+                                <h5>Address</h5>
+                                <hr>
+
+                                <p><strong>Address line 1:</strong>
+                                    <span id="customer-address-line-1">—</span>
+                                </p>
+
+                                <p><strong>Address line 2:</strong>
+                                    <span id="customer-address-line-2">—</span>
+                                </p>
+
+                                <p><strong>City:</strong>
+                                    <span id="customer-city">—</span>
+                                </p>
+
+                                <p><strong>State:</strong>
+                                    <span id="customer-state">—</span>
+                                </p>
+
+                                <p><strong>Country:</strong>
+                                    <span id="customer-country">—</span>
+                                </p>
+                                <p>
+                                    <strong>PIN Code:</strong>
+                                    <span id="customer-pincode">—</span>
+                                </p>
+                            </div>
 
                             <hr>
 
-                            <h5>
-                                Vendor Information
-                            </h5>
+                            <a href="{% url 'edit_profile' %}"
+                               class="btn btn-primary">
+                                Edit Profile
+                            </a>
 
-                            <hr>
+                            <a href="{% url 'dashboard' %}"
+                               class="btn btn-light">
+                                Back to Dashboard
+                            </a>
 
-                            <p>
-                                <strong>Gstin:</strong>
-                                {{ vendor_profile.gstin }}
-                            </p>
-
-                            <p>
-                                <strong>Store name:</strong>
-                                {{ vendor_profile.store_name }}
-                            </p>
-
-                            <p>
-                                <strong>Business type:</strong>
-                                {{ vendor_profile.business_type }}
-                            </p>
-
-                            <p>
-                                <strong>Pan:</strong>
-                                {{ vendor_profile.pan }}
-                            </p>
-
-
-                            <!-- Business Address -->
-
-                            <hr>
-
-                            <h5>
-                                Business Address
-                            </h5>
-
-                            <hr>
-
-                            <p>
-                                <strong>Address line 1:</strong>
-                                {{ vendor_profile.address_line_1 }}
-                            </p>
-
-                            <p>
-                                <strong>Address line 2:</strong>
-                                {{ vendor_profile.address_line_2 }}
-                            </p>
-
-                            <p>
-                                <strong>City:</strong>
-                                {{ vendor_profile.city }}
-                            </p>
-
-                            <p>
-                                <strong>State:</strong>
-                                {{ vendor_profile.state }}
-                            </p>
-
-                            <p>
-                                <strong>Pincode:</strong>
-                                {{ vendor_profile.pincode }}
-                            </p>
-
-
-                            <!-- Bank Details -->
-
-                            <hr>
-
-                            <h5>
-                                Bank Details
-                            </h5>
-
-                            <hr>
-
-                            <p>
-                                <strong>Account holder name:</strong>
-                                {{ vendor_profile.account_holder_name }}
-                            </p>
-
-                            <p>
-                                <strong>Account number:</strong>
-                                {{ vendor_profile.account_number }}
-                            </p>
-
-                            <p>
-                                <strong>Ifsc code:</strong>
-                                {{ vendor_profile.ifsc_code }}
-                            </p>
-
-                            <p>
-                                <strong>Bank name:</strong>
-                                {{ vendor_profile.bank_name }}
-                            </p>
-
-
-                            <!-- Shipping Details -->
-
-                            <hr>
-
-                            <h5>
-                                Shipping Details
-                            </h5>
-
-                            <hr>
-
-                            <p>
-                                <strong>Shipping method:</strong>
-                                {{ vendor_profile.shipping_method }}
-                            </p>
-
-                            <p>
-                                <strong>Shipping charges:</strong>
-                                ₹{{ vendor_profile.shipping_charges }}
-                            </p>
-
-                            <p>
-                                <strong>Return policy:</strong>
-                                {{ vendor_profile.return_policy }}
-                            </p>
-
-
-                        {% else %}
-
-                            <!-- Customer Address -->
-
-                            <hr>
-
-                            <h5>
-                                Address
-                            </h5>
-
-                            <hr>
-
-                            <p>
-                                <strong>Address line 1:</strong>
-                                {{ userprofile.address_line_1 }}
-                            </p>
-
-                            <p>
-                                <strong>Address line 2:</strong>
-                                {{ userprofile.address_line_2 }}
-                            </p>
-
-                            <p>
-                                <strong>City:</strong>
-                                {{ userprofile.city }}
-                            </p>
-
-                            <p>
-                                <strong>State:</strong>
-                                {{ userprofile.state }}
-                            </p>
-
-                            <p>
-                                <strong>Country:</strong>
-                                {{ userprofile.country }}
-                            </p>
-
-                        {% endif %}
-
-
-                        <hr>
-
-                        <a
-                            href="{% url 'edit_profile' %}"
-                            class="btn btn-primary"
-                        >
-                            Edit Profile
-                        </a>
-
-                        <a
-                            href="{% url 'dashboard' %}"
-                            class="btn btn-light"
-                        >
-                            Back to Dashboard
-                        </a>
-
+                        </div>
                     </div>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 </section>
 
+
+<script>
+(function () {
+    function setText(id, value, prefix = '') {
+        const element = document.getElementById(id);
+        if (!element) return;
+
+        element.textContent =
+            value !== null &&
+            value !== undefined &&
+            value !== ''
+                ? prefix + value
+                : '—';
+    }
+
+    async function loadProfile() {
+        const loading = document.getElementById('profile-loading');
+        const content = document.getElementById('profile-content');
+        const errorBox = document.getElementById('profile-error');
+
+        try {
+            if (!window.API) {
+                throw new Error(
+                    'api.js is not loaded. Check base.html.'
+                );
+            }
+
+            await API.ready;
+
+            const response = await API.fetch(
+                '/accounts/api/profile/'
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message ||
+                    data.detail ||
+                    data.error ||
+                    'Unable to load profile.'
+                );
+            }
+
+            // Your API returns user fields at the root
+            // and customer/vendor fields inside data.profile.
+            const user = data;
+            const profile = data.profile || {};
+            const isVendor = Boolean(data.is_vendor);
+
+            // Personal information
+            setText('profile-first-name', user.first_name);
+            setText('profile-last-name', user.last_name);
+            setText('profile-username', user.username);
+            setText('profile-email', user.email);
+            setText('profile-phone', user.phone_number);
+
+            const vendorSection =
+                document.getElementById('vendor-information');
+
+            const customerSection =
+                document.getElementById('customer-address');
+
+            if (vendorSection) {
+                vendorSection.hidden = !isVendor;
+            }
+
+            if (customerSection) {
+                customerSection.hidden = isVendor;
+            }
+
+            if (isVendor) {
+                // Vendor information
+                setText('vendor-gstin', profile.gstin);
+                setText('vendor-store-name', profile.store_name);
+                setText('vendor-business-type', profile.business_type);
+                setText('vendor-pan', profile.pan);
+
+                // Business address
+                setText(
+                    'vendor-address-line-1',
+                    profile.address_line_1
+                );
+                setText(
+                    'vendor-address-line-2',
+                    profile.address_line_2
+                );
+                setText('vendor-city', profile.city);
+                setText('vendor-state', profile.state);
+                setText('vendor-pincode', profile.pincode);
+
+                // Bank details
+                setText(
+                    'vendor-account-holder',
+                    profile.account_holder_name
+                );
+                setText(
+                    'vendor-account-number',
+                    profile.account_number
+                );
+                setText('vendor-ifsc', profile.ifsc_code);
+                setText('vendor-bank-name', profile.bank_name);
+
+                // Shipping details
+                setText(
+                    'vendor-shipping-method',
+                    profile.shipping_method
+                );
+                setText(
+                    'vendor-shipping-charges',
+                    profile.shipping_charges,
+                    '₹'
+                );
+                setText(
+                    'vendor-return-policy',
+                    profile.return_policy
+                );
+
+            } else {
+                // Customer address
+                setText(
+                    'customer-address-line-1',
+                    profile.address_line_1
+                );
+                setText(
+                    'customer-address-line-2',
+                    profile.address_line_2
+                );
+                setText('customer-city', profile.city);
+                setText('customer-state', profile.state);
+                setText('customer-country', profile.country);
+                setText('customer-pincode', profile.pincode);
+            }
+
+            if (loading) loading.hidden = true;
+            if (content) content.hidden = false;
+            if (errorBox) errorBox.hidden = true;
+
+        } catch (error) {
+            console.error('Profile API error:', error);
+
+            if (loading) loading.hidden = true;
+
+            if (errorBox) {
+                errorBox.textContent =
+                    error.message || 'Unable to load profile.';
+                errorBox.hidden = false;
+            }
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener(
+            'DOMContentLoaded',
+            loadProfile,
+            { once: true }
+        );
+    } else {
+        loadProfile();
+    }
+})();
+</script>
+
 {% endblock %}
+
+

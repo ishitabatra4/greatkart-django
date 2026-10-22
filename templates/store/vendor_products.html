@@ -1,94 +1,150 @@
 {% extends 'base.html' %}
-
 {% block content %}
 
 <section class="section-content padding-y">
 <div class="container">
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-<h3>My Products</h3>
-<a href="{% url 'vendor_product_add' %}" class="btn btn-primary">
-+ Add Product
-</a>
-</div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>My Products</h3>
+        <a href="{% url 'vendor_product_add' %}" class="btn btn-primary">
+            + Add Product
+        </a>
+    </div>
 
-{% include 'includes/alerts.html' %}
+    {% include 'includes/alerts.html' %}
 
-<div class="card">
-<div class="card-body">
+    <div id="products-loading" class="text-muted mb-3">
+        Loading products...
+    </div>
 
-<table class="table table-bordered">
+    <div id="products-error" class="alert alert-danger" hidden></div>
 
-<thead>
-<tr>
-<th>Image</th>
-<th>Product</th>
-<th>Category</th>
-<th>Price</th>
-<th>Stock</th>
-<th>Status</th>
-<th>Actions</th>
-</tr>
-</thead>
-
-<tbody>
-
-{% for product in products %}
-
-<tr>
-
-<td>
-{% if product.images %}
-<img src="{{ product.images.url }}" width="60" height="60" style="object-fit:cover;">
-{% endif %}
-</td>
-
-<td>{{ product.product_name }}</td>
-
-<td>{{ product.category.category_name }}</td>
-
-<td>₹{{ product.price }}</td>
-
-<td>{{ product.stock }}</td>
-
-<td>
-{% if product.is_available and product.stock > 0 %}
-<span class="text-success">Available</span>
-{% else %}
-<span class="text-danger">Out of Stock</span>
-{% endif %}
-</td>
-
-<td>
-<a href="{% url 'vendor_product_edit' product.id %}" class="btn btn-sm btn-primary">
-Edit
-</a>
-
-<a href="{% url 'vendor_product_delete' product.id %}" class="btn btn-sm btn-danger">
-Delete
-</a>
-</td>
-
-</tr>
-
-{% empty %}
-
-<tr>
-<td colspan="7" class="text-center">
-No products added yet.
-</td>
-</tr>
-
-{% endfor %}
-
-</tbody>
-
-</table>
-
-</div>
-</div>
-
+    <div class="card">
+        <div class="card-body table-responsive">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Image</th>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="vendor-products-list"></tbody>
+            </table>
+        </div>
+    </div>
 </div>
 </section>
+
+<script>
+(function () {
+    async function loadVendorProducts() {
+        const body = document.getElementById('vendor-products-list');
+        const loading = document.getElementById('products-loading');
+        const errorBox = document.getElementById('products-error');
+
+        loading.hidden = false;
+        errorBox.hidden = true;
+        body.replaceChildren();
+
+        try {
+            const response = await API.fetch('/store/api/vendor/products/');
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.detail || data.error || `HTTP ${response.status}`);
+            }
+
+            const products = Array.isArray(data)
+                ? data
+                : data.results || data.products || data.data || [];
+
+            loading.hidden = true;
+
+            if (!products.length) {
+                const row = body.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 7;
+                cell.className = 'text-center';
+                cell.textContent = 'No products added yet.';
+                return;
+            }
+
+            products.forEach(product => {
+                const row = body.insertRow();
+
+                const imageCell = row.insertCell();
+                if (product.images) {
+                    const image = document.createElement('img');
+                    image.src = product.images;
+                    image.alt = product.product_name || 'Product';
+                    image.width = 60;
+                    image.height = 60;
+                    image.style.objectFit = 'cover';
+                    imageCell.appendChild(image);
+                } else {
+                    imageCell.textContent = '—';
+                }
+
+                row.insertCell().textContent = product.product_name || '—';
+
+                const category = product.category;
+                row.insertCell().textContent =
+                    typeof category === 'object'
+                        ? (category?.category_name || category?.name || '—')
+                        : (category || '—');
+
+                row.insertCell().textContent = '₹' + (product.price ?? '—');
+                row.insertCell().textContent = product.stock ?? 0;
+
+                const available = Boolean(product.is_available) &&
+                    Number(product.stock) > 0;
+
+                const statusCell = row.insertCell();
+                statusCell.textContent = available ? 'Available' : 'Out of Stock';
+                statusCell.className = available ? 'text-success' : 'text-danger';
+
+                const actions = row.insertCell();
+
+                const edit = document.createElement('a');
+                edit.href = `/store/vendor/products/edit/${product.id}/`;
+                edit.className = 'btn btn-sm btn-primary mr-1';
+                edit.textContent = 'Edit';
+                actions.appendChild(edit);
+
+                const remove = document.createElement('a');
+                remove.href = `/store/vendor/products/delete/${product.id}/`;
+                remove.className = 'btn btn-sm btn-danger';
+                remove.textContent = 'Delete';
+                actions.appendChild(remove);
+            });
+        } catch (error) {
+            console.error('Vendor products API:', error);
+            loading.hidden = true;
+            errorBox.textContent = error.message || 'Could not load products.';
+            errorBox.hidden = false;
+        }
+    }
+
+    function start() {
+        if (!window.API) {
+            document.getElementById('products-loading').textContent =
+                'API helper missing. Check base.html.';
+            return;
+        }
+        loadVendorProducts();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start);
+    } else {
+        start();
+    }
+})();
+</script>
 
 {% endblock %}

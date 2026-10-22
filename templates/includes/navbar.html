@@ -88,44 +88,28 @@ INR
 
 
 <!-- Categories -->
-
 <div class="col-lg col-sm col-md col-6 flex-grow-0">
+    <div class="category-wrap dropdown d-inline-block float-right">
 
-<div class="category-wrap dropdown d-inline-block float-right">
+        <button type="button"
+                class="btn btn-primary dropdown-toggle"
+                data-toggle="dropdown">
+            <i class="fa fa-bars"></i>
+            All category
+        </button>
 
-<button type="button"
-        class="btn btn-primary dropdown-toggle"
-        data-toggle="dropdown">
+        <div class="dropdown-menu" id="category-dropdown">
+            <a class="dropdown-item" href="{% url 'store' %}">
+                All Products
+            </a>
 
-<i class="fa fa-bars"></i>
-All category
+            <div class="dropdown-divider"></div>
+            <span class="dropdown-item-text text-muted">
+                Loading categories...
+            </span>
+        </div>
 
-</button>
-
-
-<div class="dropdown-menu">
-
-<a class="dropdown-item"
-   href="{% url 'store' %}">
-All Products
-</a>
-
-
-{% for category in links %}
-
-<a class="dropdown-item"
-   href="{{ category.get_url }}">
-
-{{ category.category_name }}
-
-</a>
-
-{% endfor %}
-
-</div>
-
-</div>
-
+    </div>
 </div>
 
 
@@ -318,3 +302,66 @@ Logout
 </section>
 
 </header>
+
+<script>
+document.addEventListener("DOMContentLoaded", async function () {
+    const dropdown = document.getElementById("category-dropdown");
+    if (!dropdown) return;
+
+    try {
+        // Adjust this URL if category.urls is mounted under a different prefix.
+        const response = await fetch("/category/api/categories/", {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error("Could not load categories");
+        }
+
+        const result = await response.json();
+
+        dropdown.innerHTML = "";
+
+        const allProducts = document.createElement("a");
+        allProducts.className = "dropdown-item";
+        allProducts.href = "{% url 'store' %}";
+        allProducts.textContent = "All Products";
+        dropdown.appendChild(allProducts);
+
+        dropdown.appendChild(document.createElement("div")).className =
+            "dropdown-divider";
+
+        if (!result.categories || result.categories.length === 0) {
+            const empty = document.createElement("span");
+            empty.className = "dropdown-item-text text-muted";
+            empty.textContent = "No categories available";
+            dropdown.appendChild(empty);
+            return;
+        }
+
+        result.categories.forEach(function (category) {
+            const link = document.createElement("a");
+            link.className = "dropdown-item";
+            link.textContent = category.name;
+
+            // Prefer the API-provided URL; fall back to the store page.
+            link.href = category.url || "{% url 'store' %}";
+            dropdown.appendChild(link);
+        });
+
+    } catch (error) {
+        console.error("Category API error:", error);
+
+        dropdown.innerHTML = "";
+
+        const fallback = document.createElement("a");
+        fallback.className = "dropdown-item";
+        fallback.href = "{% url 'store' %}";
+        fallback.textContent = "Browse all products";
+        dropdown.appendChild(fallback);
+    }
+});
+</script>

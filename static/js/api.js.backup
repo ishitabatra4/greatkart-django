@@ -1,0 +1,109 @@
+
+const API = {
+    accessToken: null,
+    refreshToken: null,
+
+    setTokens(access, refresh) {
+        this.accessToken = access;
+        if (refresh) this.refreshToken = refresh;
+    },
+
+    clearTokens() {
+        this.accessToken = null;
+        this.refreshToken = null;
+    },
+
+    async refreshAccessToken() {
+        if (!this.refreshToken) return false;
+
+        try {
+            const response = await fetch('/accounts/api/token/refresh/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh: this.refreshToken })
+            });
+
+            if (!response.ok) {
+                this.clearTokens();
+                return false;
+            }
+
+            const data = await response.json();
+            this.accessToken = data.access;
+
+            // SimpleJWT returns a new refresh token when rotation is enabled.
+            if (data.refresh) this.refreshToken = data.refresh;
+
+            return true;
+        } catch (error) {
+            console.error('Token refresh failed:', error);
+            return false;
+        }
+    },
+
+    async fetch(url, options = {}) {
+        const request = async () => {
+            const headers = new Headers(options.headers || {});
+
+            if (this.accessToken) {
+                headers.set('Authorization', `Bearer ${this.accessToken}`);
+            }
+
+            if (!(options.body instanceof FormData) &&
+                options.body &&
+                !headers.has('Content-Type')) {
+                headers.set('Content-Type', 'application/json');
+            }
+
+            return fetch(url, { ...options, headers });
+        };
+
+        let response = await request();
+
+        if (response.status === 401 && this.refreshToken) {
+            const refreshed = await this.refreshAccessToken();
+
+            if (refreshed) {
+                response = await request();
+            }
+        }
+
+        return response;
+    },
+
+    async login(email, password) {
+        const response = await fetch('/accounts/api/token/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Login failed');
+        }
+
+        this.setTokens(data.access, data.refresh);
+        return data;
+    },
+
+    async logout() {
+        try {
+            if (this.refreshToken) {
+                await fetch('/accounts/api/logout/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.accessToken || ''}`
+                    },
+                    body: JSON.stringify({ refresh: this.refreshToken })
+                });
+            }
+        } finally {
+            this.clearTokens();
+        }
+    }
+};
+
+window.API = API;

@@ -24,10 +24,10 @@ Already verified? <a href ="{% url 'login' %}">Login</a>
       <form action="{% url 'login' %}" method="POST">
         {% csrf_token %}
           <div class="form-group">
-			 <input type="email" class="form-control" placeholder="Email Address" name="email">
+			 <input type="email" class="form-control" placeholder="Email Address" name="email" id="login-email" required>
           </div> <!-- form-group// -->
           <div class="form-group">
-			<input type="password" class="form-control" placeholder="Password" name="password">
+			<input type="password" class="form-control" placeholder="Password" name="password" id="login-password" required>
           </div> <!-- form-group// -->
           
           <div class="form-group">
@@ -37,6 +37,7 @@ Already verified? <a href ="{% url 'login' %}">Login</a>
           <div class="form-group">
               <button type="submit" class="btn btn-primary btn-block"> Login  </button>
           </div> <!-- form-group// -->    
+            <div id="login-message" class="text-center mt-3" role="alert" aria-live="polite"></div>
       </form>
       </div> <!-- card-body.// -->
     </div> <!-- card .// -->
@@ -48,6 +49,61 @@ Already verified? <a href ="{% url 'login' %}">Login</a>
 
 </section>
 <!-- ========================= SECTION CONTENT END// ========================= -->
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('form[action*="login"]');
+    const message = document.getElementById('login-message');
+
+    if (!form || !window.API) {
+        console.error('Login form or API helper is missing.');
+        return;
+    }
+
+    const emailInput = document.getElementById('login-email');
+    const passwordInput = document.getElementById('login-password');
+    const button = form.querySelector('[type="submit"]');
+
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        message.textContent = '';
+        message.className = 'text-center mt-3';
+
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Signing in...';
+        }
+
+        try {
+            await window.API.login(
+                emailInput.value.trim(),
+                passwordInput.value
+            );
+
+            // Create the Django session too, preserving cart merge
+            // and existing customer/vendor redirects.
+            form.submit();
+
+        } catch (error) {
+            console.error('Login error:', error);
+
+            message.textContent =
+                error.message || 'Login failed. Please check your credentials.';
+
+            message.className = 'text-center mt-3 text-danger';
+
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Login';
+            }
+        }
+    });
+});
+
+</script>
 
 
 {% endblock %}

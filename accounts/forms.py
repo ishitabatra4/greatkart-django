@@ -1,5 +1,6 @@
 from django import forms
 from .models import Account,UserProfile,VendorProfile
+import re
 
 
 class RegistrationForm(forms.ModelForm):
@@ -53,27 +54,40 @@ class RegistrationForm(forms.ModelForm):
 
         return email
 
+    
     def clean(self):
-        cleaned_data=super(RegistrationForm,self).clean()
+        cleaned_data = super().clean()
 
-        password=cleaned_data.get('password')
-        confirm_password=cleaned_data.get('confirm_password')
-        registration_type=cleaned_data.get('registration_type')
-        gstin=cleaned_data.get('gstin')
+        password = cleaned_data.get('password')
+        confirm_password = cleaned_data.get('confirm_password')
+        registration_type = cleaned_data.get('registration_type')
+        gstin = (cleaned_data.get('gstin') or '').strip().upper()
 
-        if password!=confirm_password:
+        if password != confirm_password:
             self.add_error(
                 'confirm_password',
-                'Passwords do not match'
+                'Passwords do not match.'
             )
 
-        if registration_type=='vendor' and not gstin:
-            self.add_error(
-                'gstin',
-                'GSTIN is required for vendors.'
-            )
+        if registration_type == 'vendor':
+            if not gstin:
+                self.add_error(
+                    'gstin',
+                    'GSTIN is required for vendors.'
+                )
+            elif not re.fullmatch(
+                r'[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]',
+                gstin
+            ):
+                self.add_error(
+                    'gstin',
+                    'Enter GSTIN in the correct 15-character format.'
+                )
+            else:
+                cleaned_data['gstin'] = gstin
 
         return cleaned_data
+
 
 
 class UserForm(forms.ModelForm):
@@ -103,6 +117,7 @@ class UserProfileForm(forms.ModelForm):
             'city',
             'state',
             'country',
+            'pincode',
             'profile_picture'
         )
 

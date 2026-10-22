@@ -1,108 +1,594 @@
+
 {% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
 
+<section class="section-content padding-y bg">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <div class="card">
+                    <div class="card-body">
 
-<div class="container" style="margin: 0 auto;width: 50%;padding: 50px;background: #f1f1f1;margin-top: 50px;margin-bottom: 50px;">
-    <div class="row invoice row-printable">
-        <div class="col-md-12">
-            <!-- col-lg-12 start here -->
-            <div class="panel panel-default plain" id="dash_0">
-                <!-- Start .panel -->
-                <div class="panel-body p30">
-                    <div class="row">
-                        <!-- Start .row -->
-                        <div class="col-lg-6">
-                            <!-- col-lg-6 start here -->
-                            <div class="invoice-logo"><img src="{% static '/images/logo.png' %}" alt="Invoice logo" style="max-height: 40px;"></div>
-                        </div>
-                        <!-- col-lg-6 end here -->
-                        <div class="col-lg-6">
-                            <!-- col-lg-6 start here -->
-                            <div class="invoice-from">
-                                <ul class="list-unstyled text-right">
-                                    <li><strong>Invoiced To</strong></li>
-                                    <li>{{order.full_name}}</li>
-                                    <li>{{order.full_address}}</li>
-                                    <li>{{order.city}}, {{order.state}}</li>
-                                    <li>{{order.country}}</li>
-                                </ul>
+                        <div class="row mb-4 align-items-center">
+                            <div class="col-md-6">
+                                <h4 class="mb-1">Order Details</h4>
+                                <p class="text-muted mb-0">
+                                    Overall order and vendor invoices
+                                </p>
+                            </div>
+                            <div class="col-md-6 text-md-right mt-3 mt-md-0">
+                                <img src="{% static 'images/logo.png' %}"
+                                     alt="Logo"
+                                     style="max-width:150px;max-height:60px;">
                             </div>
                         </div>
-                        <!-- col-lg-6 end here -->
-                        <div class="col-lg-12">
-                            <!-- col-lg-12 start here -->
-                            <div class="invoice-details mt25">
-                                <div class="well">
-                                    <ul class="list-unstyled mb0">
-                                        <li><strong>Order</strong> #{{order.order_number}}</li>
-                                        <li><strong>Transaction ID</strong> {{order.payment.payment_id}}</li>
-                                        <li><strong>Order Date:</strong> {{order.created_at}}</li>
-                                        <li><strong>Status:</strong> {{order.payment.status}}</li>
-                                    </ul>
+
+                        <div id="order-loading" class="my-3" role="status">
+                            Loading order details...
+                        </div>
+
+                        <div id="order-error" class="my-3 text-danger"
+                             role="alert" hidden></div>
+
+                        <div id="order-content" hidden>
+
+                            <hr>
+
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">BILLING INFORMATION</h6>
+                                    <p><strong>Name:</strong> <span id="customer-name"></span></p>
+                                    <p><strong>Phone:</strong> <span id="customer-phone"></span></p>
+                                    <p><strong>Email:</strong> <span id="customer-email"></span></p>
+                                    <p><strong>Address:</strong> <span id="customer-address"></span></p>
+                                    <p><strong>City:</strong> <span id="customer-city"></span></p>
+                                    <p><strong>State:</strong> <span id="customer-state"></span></p>
+                                    <p><strong>Country:</strong> <span id="customer-country"></span></p>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <h6 class="text-muted">ORDER INFORMATION</h6>
+                                    <p><strong>Order Number:</strong> <span id="order-number"></span></p>
+                                    <p><strong>Transaction ID:</strong> <span id="transaction-id">N/A</span></p>
+                                    <p><strong>Order Date:</strong> <span id="order-date"></span></p>
+                                    <p><strong>Payment Status:</strong> <span id="payment-status">Not available</span></p>
+                                    <p>
+                                        <strong>Order Status:</strong>
+                                        <span id="order-status" class="badge badge-secondary"></span>
+                                    </p>
+
+                                    <button type="button" id="cancel-order-btn"
+                                            class="btn btn-danger btn-sm mt-2" hidden>
+                                        Cancel Order
+                                    </button>
                                 </div>
                             </div>
 
-                            <div class="invoice-items">
-                                <div class="table-responsive" style="overflow: hidden; outline: none;" tabindex="0">
-                                    <table class="table table-bordered">
-                                        <thead>
-                                            <tr>
-                                                <th class="per70 text-center">Products</th>
-                                                <th class="per5 text-center">Qty</th>
-                                                <th class="per25 text-center">Total</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                          {% for item in order_detail %}
-                                            <tr>
-                                                <td>{{item.product.product_name}}
-                                                  <p class="text-muted small">
-                                          					{% if item.variations.all %}
-                                          						{% for i in item.variations.all %}
-                                          							{{ i.variation_category | capfirst }} : {{ i.variation_value | capfirst }} <br>
-                                          						{% endfor %}
-                                          					{% endif %}
-                                          				</p>
-                                                </td>
-                                                <td class="text-center">{{item.quantity}}</td>
-                                                <td class="text-center">{{item.product_price}} INR</td>
-                                            </tr>
-                                          {% endfor %}
-                                        </tbody>
-                                        <tfoot>
-                                            <tr>
-                                                <th colspan="2" class="text-right">Sub Total:</th>
-                                                <th class="text-center">₹{{subtotal}} INR</th>
-                                            </tr>
-                                            <tr>
-                                                <th colspan="2" class="text-right">Tax:</th>
-                                                <th class="text-center">₹{{order.tax}} INR</th>
-                                            </tr>
+                            <div id="cancel-order-message" class="mb-3"
+                                 role="status" aria-live="polite"></div>
 
-                                            <tr>
-                                                <th colspan="2" class="text-right">Grand Total:</th>
-                                                <th class="text-center">₹{{order.order_total}} INR</th>
-                                            </tr>
-                                        </tfoot>
+                            <hr>
+
+                            <h5 class="mb-3">All Ordered Products</h5>
+
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead class="thead-light">
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Price</th>
+                                            <th>Quantity</th>
+                                            <th class="text-right">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="order-items">
+                                        <tr>
+                                            <td colspan="4" class="text-center">
+                                                Loading products...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="row justify-content-end">
+                                <div class="col-md-6 col-lg-5">
+                                    <table class="table table-borderless">
+                                        <tr>
+                                            <th>Subtotal</th>
+                                            <td class="text-right">₹<span id="subtotal">0.00</span></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Tax</th>
+                                            <td class="text-right">₹<span id="order-tax">0.00</span></td>
+                                        </tr>
+                                        <tr class="border-top">
+                                            <th>Overall Order Total</th>
+                                            <th class="text-right">₹<span id="order-total">0.00</span></th>
+                                        </tr>
                                     </table>
                                 </div>
                             </div>
-                            <div class="invoice-footer mt25">
-                                <p class="text-center">Thank you for shopping with us!</p>
+
+                            <hr>
+
+                            <h4 class="mb-3">Vendor-wise Invoices</h4>
+                            <p class="text-muted">
+                                Products from the same vendor are grouped
+                                into one invoice.
+                            </p>
+
+                            <div id="vendor-invoices-container">
+                                <p class="text-muted">Loading vendor invoices...</p>
                             </div>
+
                         </div>
-                        <!-- col-lg-12 end here -->
+
+                        <div class="d-flex justify-content-between flex-wrap mt-3">
+                            <a href="{% url 'my_orders' %}"
+                               class="btn btn-secondary mb-2 no-print">
+                                <i class="fa fa-arrow-left"></i>
+                                Back to My Orders
+                            </a>
+
+                            <button type="button"
+                                    class="btn btn-outline-dark mb-2 no-print"
+                                    onclick="window.print()">
+                                <i class="fa fa-print"></i>
+                                Print Overall Order
+                            </button>
+                        </div>
+
                     </div>
-                    <!-- End .row -->
                 </div>
             </div>
-            <!-- End .panel -->
         </div>
-        <!-- col-lg-12 end here -->
     </div>
-    </div>
+</section>
 
+<style>
+    .invoice-card {
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        margin-bottom: 24px;
+        background: white;
+    }
+
+    .invoice-card .card-body {
+        padding: 24px;
+    }
+
+    .invoice-heading {
+        border-bottom: 1px solid #dee2e6;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+    }
+
+    .invoice-totals {
+        max-width: 360px;
+        margin-left: auto;
+    }
+
+    @media print {
+        nav, header, footer, .no-print,
+        #cancel-order-message, #order-loading, #order-error {
+            display: none !important;
+        }
+
+        body, .section-content, .card, .invoice-card {
+            background: white !important;
+            box-shadow: none !important;
+        }
+
+        .container {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        .invoice-card {
+            break-inside: avoid;
+        }
+
+        body.printing-vendor-invoice #order-content > * {
+            display: none !important;
+        }
+
+        body.printing-vendor-invoice #vendor-invoices-container {
+            display: block !important;
+        }
+
+        body.printing-vendor-invoice #vendor-invoices-container .invoice-card {
+            display: none !important;
+        }
+
+        body.printing-vendor-invoice #vendor-invoices-container .invoice-card.print-target {
+            display: block !important;
+            border: none !important;
+        }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+    const loading = document.getElementById('order-loading');
+    const errorBox = document.getElementById('order-error');
+    const content = document.getElementById('order-content');
+    const cancelButton = document.getElementById('cancel-order-btn');
+    const cancelMessage = document.getElementById('cancel-order-message');
+    const itemsBody = document.getElementById('order-items');
+    const invoicesContainer = document.getElementById('vendor-invoices-container');
+
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const pageOrderId = pathParts[pathParts.length - 1];
+
+    let currentOrder = null;
+
+    const money = value => {
+        const number = Number(value);
+        return Number.isFinite(number) ? number.toFixed(2) : '0.00';
+    };
+
+    function setText(id, value) {
+        const element = document.getElementById(id);
+        element.textContent =
+            value === null || value === undefined || value === ''
+                ? '—'
+                : String(value);
+    }
+
+    function showError(message) {
+        loading.hidden = true;
+        errorBox.hidden = false;
+        errorBox.textContent = message;
+    }
+
+    function renderStatus(status) {
+        const badge = document.getElementById('order-status');
+        badge.textContent = status || 'Unknown';
+
+        const classes = {
+            New: 'badge badge-primary',
+            Accepted: 'badge badge-info',
+            Completed: 'badge badge-success',
+            Cancelled: 'badge badge-danger'
+        };
+
+        badge.className = classes[status] || 'badge badge-secondary';
+        cancelButton.hidden = !['New', 'Accepted'].includes(status);
+        cancelButton.disabled = false;
+    }
+
+    function renderItems(items) {
+        itemsBody.replaceChildren();
+
+        if (!items || !items.length) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 4;
+            cell.className = 'text-center';
+            cell.textContent = 'No products found for this order.';
+            row.appendChild(cell);
+            itemsBody.appendChild(row);
+            return 0;
+        }
+
+        let calculatedSubtotal = 0;
+
+        items.forEach(item => {
+            const row = document.createElement('tr');
+
+            let productName = item.product_name || 'Product';
+
+            if (item.color || item.size) {
+                productName += ' | ' + [
+                    item.color ? `Color: ${item.color}` : '',
+                    item.size ? `Size: ${item.size}` : ''
+                ].filter(Boolean).join(' | ');
+            }
+
+            const price = Number(item.product_price || 0);
+            const quantity = Number(item.quantity || 0);
+            const lineTotal = Number(item.subtotal ?? price * quantity);
+
+            calculatedSubtotal += lineTotal;
+
+            [
+                productName,
+                `₹${money(price)}`,
+                quantity,
+                `₹${money(lineTotal)}`
+            ].forEach(value => {
+                const cell = document.createElement('td');
+                cell.textContent = String(value);
+                row.appendChild(cell);
+            });
+
+            itemsBody.appendChild(row);
+        });
+
+        return calculatedSubtotal;
+    }
+
+    function addInvoiceText(parent, label, value) {
+        const paragraph = document.createElement('p');
+        paragraph.className = 'mb-1';
+
+        const strong = document.createElement('strong');
+        strong.textContent = label + ': ';
+
+        paragraph.appendChild(strong);
+        paragraph.appendChild(document.createTextNode(
+            value === null || value === undefined ? '—' : String(value)
+        ));
+
+        parent.appendChild(paragraph);
+    }
+
+    function renderVendorInvoices(invoices) {
+        invoicesContainer.replaceChildren();
+
+        if (!invoices || !invoices.length) {
+            const message = document.createElement('p');
+            message.className = 'text-muted';
+            message.textContent =
+                'No vendor invoices found for this order yet.';
+            invoicesContainer.appendChild(message);
+            return;
+        }
+
+        invoices.forEach(invoice => {
+            const card = document.createElement('div');
+            card.className = 'invoice-card';
+
+            const body = document.createElement('div');
+            body.className = 'card-body';
+
+            const heading = document.createElement('div');
+            heading.className = 'invoice-heading';
+
+            const title = document.createElement('h5');
+            title.textContent = 'Vendor Invoice';
+
+            heading.appendChild(title);
+
+            addInvoiceText(heading, 'Invoice Number', invoice.invoice_number);
+            addInvoiceText(heading, 'Order Number', currentOrder.order_number);
+            addInvoiceText(heading, 'Vendor', invoice.vendor_name || 'Vendor');
+            addInvoiceText(heading, 'Invoice Status', invoice.status || 'New');
+
+            body.appendChild(heading);
+
+            const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'table-responsive';
+
+            const table = document.createElement('table');
+            table.className = 'table table-bordered';
+
+            const thead = document.createElement('thead');
+            thead.className = 'thead-light';
+
+            const headerRow = document.createElement('tr');
+
+            ['Product', 'Price', 'Quantity', 'Total'].forEach(label => {
+                const th = document.createElement('th');
+                th.textContent = label;
+                headerRow.appendChild(th);
+            });
+
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+
+            (invoice.items || []).forEach(item => {
+                const row = document.createElement('tr');
+
+                let name = item.product_name || 'Product';
+
+                if (item.color || item.size) {
+                    name += ' | ' + [
+                        item.color ? `Color: ${item.color}` : '',
+                        item.size ? `Size: ${item.size}` : ''
+                    ].filter(Boolean).join(' | ');
+                }
+
+                [
+                    name,
+                    `₹${money(item.product_price)}`,
+                    String(item.quantity),
+                    `₹${money(item.subtotal)}`
+                ].forEach(value => {
+                    const cell = document.createElement('td');
+                    cell.textContent = value;
+                    row.appendChild(cell);
+                });
+
+                tbody.appendChild(row);
+            });
+
+            if (!invoice.items || !invoice.items.length) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 4;
+                cell.textContent = 'No products found in this invoice.';
+                row.appendChild(cell);
+                tbody.appendChild(row);
+            }
+
+            table.appendChild(tbody);
+            tableWrapper.appendChild(table);
+            body.appendChild(tableWrapper);
+
+            const totals = document.createElement('div');
+            totals.className = 'invoice-totals';
+
+            addInvoiceText(totals, 'Subtotal', `₹${money(invoice.subtotal)}`);
+            addInvoiceText(totals, 'Tax', `₹${money(invoice.tax)}`);
+            addInvoiceText(totals, 'Invoice Total', `₹${money(invoice.total)}`);
+
+            body.appendChild(totals);
+
+            const printButton = document.createElement('button');
+            printButton.type = 'button';
+            printButton.className = 'btn btn-outline-dark btn-sm no-print mt-3';
+            printButton.textContent = 'Print / Save This Invoice as PDF';
+
+            printButton.addEventListener('click', function () {
+                document.querySelectorAll('.invoice-card').forEach(element => {
+                    element.classList.remove('print-target');
+                });
+
+                card.classList.add('print-target');
+                document.body.classList.add('printing-vendor-invoice');
+
+                function cleanup() {
+                    document.body.classList.remove('printing-vendor-invoice');
+                    card.classList.remove('print-target');
+                    window.removeEventListener('afterprint', cleanup);
+                }
+
+                window.addEventListener('afterprint', cleanup);
+                window.print();
+
+                // Fallback for browsers that don't fire afterprint immediately.
+                setTimeout(cleanup, 1500);
+            });
+
+            body.appendChild(printButton);
+            card.appendChild(body);
+            invoicesContainer.appendChild(card);
+        });
+    }
+
+    try {
+        if (!window.API || typeof window.API.fetch !== 'function') {
+            throw new Error(
+                'API helper missing. Check that api.js is loaded in base.html.'
+            );
+        }
+
+        if (window.API.ready) {
+            await window.API.ready;
+        }
+
+        const response = await window.API.fetch(
+            `/accounts/api/orders/${encodeURIComponent(pageOrderId)}/`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Could not load order details.');
+        }
+
+        currentOrder = data.order;
+
+        if (!currentOrder) {
+            throw new Error('Order details were not returned by the API.');
+        }
+
+        const order = currentOrder;
+        const customer = order.customer || {};
+        const address = order.address || {};
+
+        setText('order-number', order.order_number);
+        setText('customer-name',
+            `${customer.first_name || ''} ${customer.last_name || ''}`.trim());
+        setText('customer-phone', customer.phone);
+        setText('customer-email', customer.email);
+        setText('customer-address',
+            [address.address_line_1, address.address_line_2]
+                .filter(Boolean).join(', '));
+        setText('customer-city', address.city);
+        setText('customer-state', address.state);
+        setText('customer-country', address.country);
+
+        setText('order-date', order.created_at
+            ? new Date(order.created_at).toLocaleString('en-IN')
+            : '—');
+
+        setText('transaction-id', order.payment?.payment_id || 'N/A');
+        setText('payment-status', order.payment?.status || 'Not available');
+
+        renderStatus(order.status);
+
+        const calculatedSubtotal = renderItems(order.items || []);
+
+        setText('subtotal', money(order.subtotal ?? calculatedSubtotal));
+        setText('order-tax', money(order.tax));
+        setText('order-total', money(order.order_total));
+
+        renderVendorInvoices(order.vendor_invoices || []);
+
+        loading.hidden = true;
+        content.hidden = false;
+
+    } catch (error) {
+        showError(error.message || 'Unable to load order details.');
+        return;
+    }
+
+    cancelButton.addEventListener('click', async function () {
+        if (!currentOrder ||
+            !['New', 'Accepted'].includes(currentOrder.status)) {
+            return;
+        }
+
+        const orderNumber = currentOrder.order_number;
+
+        if (!orderNumber) {
+            cancelMessage.textContent = 'Order number is missing.';
+            return;
+        }
+
+        if (!window.confirm(
+            `Are you sure you want to cancel order ${orderNumber}?`
+        )) {
+            return;
+        }
+
+        cancelButton.disabled = true;
+        cancelButton.textContent = 'Cancelling...';
+        cancelMessage.className = 'mb-3 text-info';
+        cancelMessage.textContent = 'Please wait, cancelling your order...';
+
+        try {
+            const response = await window.API.fetch(
+                `/accounts/api/orders/${encodeURIComponent(orderNumber)}/cancel/`,
+                { method: 'POST' }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message || 'Unable to cancel this order.'
+                );
+            }
+
+            const newStatus = data.order?.status || 'Cancelled';
+            currentOrder.status = newStatus;
+
+            renderStatus(newStatus);
+
+            cancelMessage.className = 'mb-3 text-success';
+            cancelMessage.textContent =
+                data.message || 'Order cancelled successfully.';
+
+            cancelButton.textContent = 'Cancel Order';
+
+        } catch (error) {
+            cancelMessage.className = 'mb-3 text-danger';
+            cancelMessage.textContent =
+                error.message || 'Something went wrong. Please try again.';
+
+            cancelButton.disabled = false;
+            cancelButton.textContent = 'Cancel Order';
+        }
+    });
+});
+</script>
 
 {% endblock %}

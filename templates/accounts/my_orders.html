@@ -1,57 +1,259 @@
-{% extends 'base.html' %}
 
+{% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 
-<section class="section-conten padding-y bg">
+<section class="section-content padding-y bg">
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">My Orders</h4>
+            </div>
 
-{% include 'includes/alerts.html' %}
-<div class="container">
-	<div class="row">
-	{% include 'includes/dashboard_sidebar.html' %}
-	<main class="col-md-9">
-		<article class="card">
-		<header class="card-header">
-			<strong class="d-inline-block mr-3">Your order history</strong>
+            <div class="card-body">
+                <div id="orders-message" class="mb-3"
+                     role="status" aria-live="polite"></div>
 
-		</header>
-		<div class="card-body">
-			<div class="row">
-			<div class="col-md-12">
-				<table class="table table-hover">
-				  <thead>
-				    <tr>
-				      <th scope="col">Order #</th>
-				      <th scope="col">Billing Name</th>
-				      <th scope="col">Phone</th>
-				      <th scope="col">Order Total</th>
-							<th scope="col">Date</th>
-				    </tr>
-				  </thead>
-				  <tbody>
-						{% for order in orders %}
-				    <tr>
-				      <th scope="row"><a href="{% url 'order_detail' order.order_number %}">{{order.order_number}}</a></th>
-				      <td>{{order.full_name}}</td>
-				      <td>{{order.phone}}</td>
-				      <td>${{order.order_total}}</td>
-							<td>{{order.created_at}}</td>
-				    </tr>
-				{% endfor %}
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Order #</th>
+                                <th>Billing Name</th>
+                                <th>Phone</th>
+                                <th>Total</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
 
-				  </tbody>
-				</table>
-			</div>
-
-			</div> <!-- row.// -->
-		</div> <!-- card-body .// -->
-
-		</article> <!-- order-group.// -->
-	</main>
-</div> <!-- row.// -->
-</div>
-
-
+                        <tbody id="orders-table-body">
+                            <tr>
+                                <td colspan="7" class="text-center">
+                                    Loading orders...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', async function () {
+    const tableBody = document.getElementById('orders-table-body');
+    const message = document.getElementById('orders-message');
+
+    function escapeHTML(value) {
+        return String(value ?? '').replace(/[&<>"']/g, function (char) {
+            return {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char];
+        });
+    }
+
+    function formatMoney(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number.toFixed(2) : '0.00';
+    }
+
+    function formatDate(value) {
+        if (!value) return '—';
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) return '—';
+
+        return date.toLocaleDateString('en-IN', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    }
+
+    function statusBadge(status) {
+        const classes = {
+            New: 'badge-primary',
+            Accepted: 'badge-info',
+            Completed: 'badge-success',
+            Cancelled: 'badge-danger'
+        };
+
+        const badgeClass = classes[status] || 'badge-secondary';
+
+        return `<span class="badge ${badgeClass} order-status">
+            ${escapeHTML(status || 'Unknown')}
+        </span>`;
+    }
+
+    async function loadOrders() {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center">
+                    Loading orders...
+                </td>
+            </tr>`;
+
+        try {
+            if (!window.API ||
+                typeof window.API.fetch !== 'function') {
+                throw new Error(
+                    'API helper unavailable. Check api.js in base.html.'
+                );
+            }
+
+            if (window.API.ready) {
+                await window.API.ready;
+            }
+
+            const response = await window.API.fetch(
+                '/accounts/api/orders/'
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message || 'Could not load orders.'
+                );
+            }
+
+            const orders = data.orders || [];
+
+            if (!orders.length) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center">
+                            No orders found.
+                            <br>
+                            <a href="/store/"
+                               class="btn btn-primary btn-sm mt-2">
+                                Continue Shopping
+                            </a>
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            tableBody.innerHTML = orders.map(function (order) {
+                const name = [
+                    order.first_name,
+                    order.last_name
+                ].filter(Boolean).join(' ');
+
+                const orderNumber = String(order.order_number ?? '');
+                const status = order.status || 'New';
+
+                const canCancel = ['New', 'Accepted'].includes(status);
+
+                // This detail link uses the order ID returned by the API.
+                const detailUrl =
+                    `/accounts/order_detail/${encodeURIComponent(order.id)}/`;
+
+                return `
+                    <tr data-order-number="${escapeHTML(orderNumber)}">
+                        <td>${escapeHTML(orderNumber || '—')}</td>
+                        <td>${escapeHTML(name || '—')}</td>
+                        <td>${escapeHTML(order.phone || '—')}</td>
+                        <td>₹${formatMoney(order.order_total)}</td>
+                        <td>${formatDate(order.created_at)}</td>
+                        <td>${statusBadge(status)}</td>
+                        <td>
+                            <a href="${detailUrl}"
+                               class="btn btn-primary btn-sm mb-1">
+                                View Details
+                            </a>
+
+                            ${canCancel ? `
+                                <button
+                                    type="button"
+                                    class="btn btn-danger btn-sm cancel-order-btn mb-1"
+                                    data-order-number="${escapeHTML(orderNumber)}">
+                                    Cancel Order
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>`;
+            }).join('');
+
+            message.textContent = '';
+            message.className = 'mb-3';
+
+        } catch (error) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-danger">
+                        ${escapeHTML(error.message || 'Unable to load orders.')}
+                    </td>
+                </tr>`;
+        }
+    }
+
+    tableBody.addEventListener('click', async function (event) {
+        const button = event.target.closest('.cancel-order-btn');
+
+        if (!button) return;
+
+        const orderNumber = button.dataset.orderNumber;
+
+        if (!orderNumber) {
+            message.className = 'mb-3 text-danger';
+            message.textContent = 'Order number is missing.';
+            return;
+        }
+
+        if (!window.confirm(
+            `Are you sure you want to cancel order ${orderNumber}?`
+        )) {
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = 'Cancelling...';
+        message.className = 'mb-3 text-info';
+        message.textContent = 'Cancelling your order...';
+
+        try {
+            const response = await window.API.fetch(
+                `/accounts/api/orders/${encodeURIComponent(orderNumber)}/cancel/`,
+                { method: 'POST' }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.message || 'Order cancellation failed.'
+                );
+            }
+
+            message.className = 'mb-3 text-success';
+            message.textContent =
+                data.message || 'Order cancelled successfully.';
+
+            // Refresh the list to show the latest status.
+            await loadOrders();
+
+        } catch (error) {
+            message.className = 'mb-3 text-danger';
+            message.textContent =
+                error.message || 'Something went wrong.';
+
+            button.disabled = false;
+            button.textContent = 'Cancel Order';
+        }
+    });
+
+    await loadOrders();
+});
+</script>
 
 {% endblock %}

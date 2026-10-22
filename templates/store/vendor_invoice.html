@@ -1,0 +1,230 @@
+
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    .invoice-page {
+        max-width: 1000px;
+        margin: 30px auto;
+        padding: 32px;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        color: #222;
+    }
+
+    .invoice-heading {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        flex-wrap: wrap;
+        border-bottom: 2px solid #222;
+        padding-bottom: 20px;
+        margin-bottom: 25px;
+    }
+
+    .invoice-section {
+        margin-top: 28px;
+    }
+
+    .invoice-section h5 {
+        margin-bottom: 12px;
+        font-weight: 700;
+    }
+
+    .invoice-totals {
+        max-width: 380px;
+        margin: 20px 0 0 auto;
+    }
+
+    .invoice-total-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 7px 0;
+    }
+
+    .invoice-grand-total {
+        border-top: 2px solid #222;
+        margin-top: 8px;
+        padding-top: 12px;
+        font-size: 20px;
+        font-weight: 700;
+    }
+
+    @media print {
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+
+        body {
+            background: #fff !important;
+        }
+
+        body * {
+            visibility: hidden;
+        }
+
+        #printable-invoice,
+        #printable-invoice * {
+            visibility: visible;
+        }
+
+        #printable-invoice {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: 0;
+            border: none;
+            border-radius: 0;
+        }
+
+        .no-print {
+            display: none !important;
+        }
+
+        table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+        }
+
+        tr, td, th {
+            page-break-inside: avoid;
+        }
+    }
+</style>
+
+<div class="container py-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+        <a href="{% url 'vendor_orders' %}" class="btn btn-outline-secondary">
+            ← Back to Vendor Orders
+        </a>
+
+        <button type="button" class="btn btn-primary" onclick="window.print()">
+            Print / Save as PDF
+        </button>
+    </div>
+
+    <div class="invoice-page" id="printable-invoice">
+        <div class="invoice-heading">
+            <div>
+                <h2>INVOICE</h2>
+                <p class="mb-1">
+                    <strong>Invoice No:</strong>
+                    {{ invoice.invoice_number }}
+                </p>
+                <p class="mb-1">
+                    <strong>Order No:</strong>
+                    {{ order.order_number }}
+                </p>
+                <p class="mb-1">
+                    <strong>Invoice Date:</strong>
+                    {{ invoice.created_at|date:"d M Y, h:i A" }}
+                </p>
+                <p class="mb-0">
+                    <strong>Status:</strong> {{ invoice.status }}
+                </p>
+            </div>
+
+            <div class="text-md-right">
+                <h4>
+                    {{ vendor_profile.store_name|default:request.user.first_name }}
+                </h4>
+                <p class="mb-1">Seller</p>
+                <p class="mb-1">{{ request.user.email }}</p>
+                {% if request.user.phone_number %}
+                    <p class="mb-0">{{ request.user.phone_number }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="row invoice-section">
+            <div class="col-md-6 mb-3">
+                <h5>Bill To</h5>
+                <p class="mb-1">
+                    <strong>{{ order.first_name }} {{ order.last_name }}</strong>
+                </p>
+                <p class="mb-1">{{ order.email }}</p>
+                <p class="mb-1">{{ order.phone }}</p>
+            </div>
+
+            <div class="col-md-6 mb-3">
+                <h5>Shipping Address</h5>
+                <p class="mb-1">{{ order.address_line_1 }}</p>
+                {% if order.address_line_2 %}
+                    <p class="mb-1">{{ order.address_line_2 }}</p>
+                {% endif %}
+                <p class="mb-1">
+                    {{ order.city }}{% if order.state %}, {{ order.state }}{% endif %}
+                </p>
+                <p class="mb-0">{{ order.country }}</p>
+            </div>
+        </div>
+
+        <div class="invoice-section">
+            <h5>Items</h5>
+
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Product</th>
+                            <th>Options</th>
+                            <th class="text-right">Unit Price</th>
+                            <th class="text-center">Qty</th>
+                            <th class="text-right">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ item.product_name }}</td>
+                                <td>
+                                    {% if item.color %}Color: {{ item.color }}{% endif %}
+                                    {% if item.color and item.size %}<br>{% endif %}
+                                    {% if item.size %}Size: {{ item.size }}{% endif %}
+                                    {% if not item.color and not item.size %}—{% endif %}
+                                </td>
+                                <td class="text-right">₹{{ item.unit_price|floatformat:2 }}</td>
+                                <td class="text-center">{{ item.quantity }}</td>
+                                <td class="text-right">₹{{ item.subtotal|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    No invoice items found.
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="invoice-totals">
+            <div class="invoice-total-row">
+                <span>Subtotal</span>
+                <strong>₹{{ invoice.subtotal|floatformat:2 }}</strong>
+            </div>
+            <div class="invoice-total-row">
+                <span>Tax</span>
+                <strong>₹{{ invoice.tax|floatformat:2 }}</strong>
+            </div>
+            <div class="invoice-total-row invoice-grand-total">
+                <span>Total</span>
+                <span>₹{{ invoice.total|floatformat:2 }}</span>
+            </div>
+        </div>
+
+        <div class="invoice-section text-center">
+            <p class="mb-1">Thank you for your order!</p>
+            <small>Invoice generated by GreatKart.</small>
+        </div>
+    </div>
+</div>
+{% endblock %}
